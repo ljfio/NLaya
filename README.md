@@ -142,4 +142,10 @@ NLAYA_PARITY=1 NLAYA_ONNX_ROOT=./onnx dotnet test --project tests/NLaya.Parity  
 The golden fixtures come from the Python reference at the commit in `tools/fixtures/LAYA_COMMIT`.
 `tools/fixtures/make_fixtures.py` regenerates them, along with the embedded tables.
 
+## Roadmap
+
+Planned work, with the context needed to pick each item up, is in [`docs/next-steps/`](docs/next-steps/README.md):
+Microsoft.Extensions.AI middleware, dependency injection, `Decide<T>()` typed schemas, trimming
+custom code, an optional ML.NET pipeline stage, and NuGet packaging with CI.
+
 License: Apache-2.0 (same as laya).
