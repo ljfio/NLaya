@@ -13,7 +13,7 @@ public sealed record ScoreAnswer : Answer
     public required IReadOnlyList<JsonNode?> Legend { get; init; }
 
     /// <summary>Probability per level, keyed "0", "1", ...</summary>
-    public required OrderedMap<double> Probabilities { get; init; }
+    public required OrderedDictionary<string, double> Probabilities { get; init; }
 
     /// <summary>The single most likely level.</summary>
     public int MostLikelyLevel => Probabilities.Select((kv, i) => (kv.Value, i)).MaxBy(x => x.Value).i;

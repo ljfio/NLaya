@@ -10,7 +10,7 @@ namespace NLaya;
 /// </summary>
 public sealed class Question
 {
-    private static readonly OrderedMap<JsonNode?> NoCriteria = new();
+    private static readonly IReadOnlyDictionary<string, JsonNode?> NoCriteria = System.Collections.ObjectModel.ReadOnlyDictionary<string, JsonNode?>.Empty;
 
     public QuestionType Type { get; }
 
@@ -89,7 +89,7 @@ public sealed class Question
     /// <summary>A yes/no statement. Descriptions and labels are optional.</summary>
     public static Question Noul(string instructions, string? whenTrue = null, string? whenFalse = null, NoulLabels? labels = null)
     {
-        var crit = new OrderedMap<JsonNode?>();
+        var crit = new OrderedDictionary<string, JsonNode?>();
         if (whenFalse is not null) crit["false"] = JsonValue.Create(whenFalse);
         if (whenTrue is not null) crit["true"] = JsonValue.Create(whenTrue);
         return Checked(new Question(QuestionType.Noul, instructions, null, null, crit, labels));

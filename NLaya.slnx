@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/NLaya.ChatGuardrail/NLaya.ChatGuardrail.csproj" />
+    <Project Path="samples/NLaya.Quickstart/NLaya.Quickstart.csproj" />
+    <Project Path="samples/NLaya.WebApi/NLaya.WebApi.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/NLaya.Extensions.AI/NLaya.Extensions.AI.csproj" />
+    <Project Path="src/NLaya.Onnx/NLaya.Onnx.csproj" />
+    <Project Path="src/NLaya.TorchSharp/NLaya.TorchSharp.csproj" />
+    <Project Path="src/NLaya/NLaya.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NLaya.Parity/NLaya.Parity.csproj" />
+    <Project Path="tests/NLaya.Tests/NLaya.Tests.csproj" />
+  </Folder>
+</Solution>

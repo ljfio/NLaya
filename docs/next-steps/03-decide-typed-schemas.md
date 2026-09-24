@@ -19,8 +19,7 @@ This is the most "native .NET" part of the API: no stringly-typed question ids.
 ## Use Microsoft libraries
 
 - **Schema generation:** `System.Text.Json.Schema.JsonSchemaExporter.GetJsonSchemaAsNode(options, typeof(T))`.
-  It's built into .NET 9+; on `net8.0` it needs the `System.Text.Json` 9.x package, or do
-  [step 4a](04-reduce-custom-code.md) first and target only .NET 10.
+  It's built into .NET 9+, and NLaya targets .NET 10 only, so no extra package is needed.
 - **Descriptions and ranges:** use `JsonSchemaExporterOptions.TransformSchemaNode` to copy
   `[Description]` into `description`, and `[Range(min, max)]` into `minimum`/`maximum`
   (`System.ComponentModel.DataAnnotations`).

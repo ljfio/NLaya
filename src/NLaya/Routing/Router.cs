@@ -7,7 +7,7 @@ namespace NLaya.Routing;
 /// <c>laya.Router</c>): non-Latin scripts and non-English Latin text go to <c>multilingual</c>, English
 /// to <c>english</c>, and <c>typed-decisions</c> only when asked for.
 /// </summary>
-public sealed class Router : HookRegistry, IDisposable
+public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
 {
     public const string BundleRepo = "convaiinnovations/laya";
 
@@ -46,7 +46,7 @@ public sealed class Router : HookRegistry, IDisposable
     private readonly Dictionary<string, LayaAgent> _agents = new();
     private readonly HashSet<string> _attached = new();
     private readonly List<string> _order = new(); // least recently used first
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
     private int _maxLoaded;
 
     public Router(RouterOptions? options = null) : base((options ??= new()).Hooks, options.HooksRaise, options.Logger)
@@ -299,6 +299,27 @@ public sealed class Router : HookRegistry, IDisposable
 
     public Task<LayaResult> PredictAsync(LayaState state, Questions questions, RouteOptions? options = null, CancellationToken ct = default) =>
         System.Threading.Tasks.Task.Run(() => Predict(state, questions, options), ct);
+
+    LayaResult ILayaPredictor.Predict(LayaState state, Questions questions, PredictOptions? options) =>
+        Predict(state, questions, AsRouteOptions(options));
+
+    Task<LayaResult> ILayaPredictor.PredictAsync(LayaState state, Questions questions, PredictOptions? options, CancellationToken ct) =>
+        PredictAsync(state, questions, AsRouteOptions(options), ct);
+
+    /// <summary>Plain <see cref="PredictOptions"/> route by detection, as if no routing option was given.</summary>
+    private static RouteOptions? AsRouteOptions(PredictOptions? options) => options switch
+    {
+        null => null,
+        RouteOptions r => r,
+        _ => new RouteOptions
+        {
+            Lang = options.Lang,
+            MaxLen = options.MaxLen,
+            HeadMaxLen = options.HeadMaxLen,
+            Hooks = options.Hooks,
+            HooksRaise = options.HooksRaise,
+        },
+    };
 
     /// <summary>Disposes the agents this router loaded (attached agents belong to the caller).</summary>
     public void Dispose()

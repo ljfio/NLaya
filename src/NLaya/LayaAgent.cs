@@ -12,7 +12,7 @@ namespace NLaya;
 /// A loaded Laya checkpoint: typed questions in, calibrated typed answers out, in one forward
 /// pass. Port of Python <c>laya.Agent</c>. Thread-safe; create with <see cref="Laya.LoadAsync"/>.
 /// </summary>
-public sealed class LayaAgent : HookRegistry, IDisposable, IAsyncDisposable
+public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyncDisposable
 {
     public const string ResultModelName = "laya-rl-agent";
 
@@ -105,7 +105,7 @@ public sealed class LayaAgent : HookRegistry, IDisposable, IAsyncDisposable
         if (states.Count == 0) return [];
         var ids = ctx.Questions.Keys.ToList();
         if (ids.Count == 0)
-            return states.Select(_ => new LayaResult(ResultModelName, new OrderedMap<Answer>(), Usage.Zero)).ToList();
+            return states.Select(_ => new LayaResult(ResultModelName, new OrderedDictionary<string, Answer>(), Usage.Zero)).ToList();
 
         var questions = ids.Select(id => ctx.Questions[id]).ToList();
         for (var i = 0; i < ids.Count; i++)

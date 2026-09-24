@@ -3,7 +3,7 @@
 **Goal:** let ML.NET users score Laya questions over an `IDataView` as a pipeline step, for example
 bulk-labelling a CSV of tickets, or feeding Laya answers into a downstream trainer as features.
 
-**Do this only when there's a batch or data-science use case.** For LLM apps, [step 1](01-microsoft-extensions-ai.md)
+**Do this only when there's a batch or data-science use case.** For LLM apps, step 1 (`NLaya.Extensions.AI`, done)
 is the better integration. ML.NET's `IDataView` fixes its column schema when the pipeline is
 built, so this only works for a **fixed question set per pipeline**, which is fine for the batch
 use case.

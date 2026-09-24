@@ -8,11 +8,11 @@ namespace NLaya.Calibration;
 /// <summary>Turns logit rows into typed answers. Port of <c>Agent._decode_answers</c>.</summary>
 internal static class Decoder
 {
-    public static OrderedMap<Answer> Decode(BackendOutput output, float[] actProbs, int rowOffset,
+    public static OrderedDictionary<string, Answer> Decode(BackendOutput output, float[] actProbs, int rowOffset,
         IReadOnlyList<string> questionIds, IReadOnlyList<Question> questions, IReadOnlyList<int> optionCounts,
         TemperatureTable temps, string? lang)
     {
-        var answers = new OrderedMap<Answer>();
+        var answers = new OrderedDictionary<string, Answer>();
         for (var j = 0; j < questionIds.Count; j++)
         {
             var r = rowOffset + j;
@@ -32,7 +32,7 @@ internal static class Decoder
             {
                 case QuestionType.Choice:
                 {
-                    var probs = new OrderedMap<double>();
+                    var probs = new OrderedDictionary<string, double>();
                     for (var i = 0; i < k; i++) probs[q.Options[i].Key] = Round(p[i]);
                     answers[questionIds[j]] = new ChoiceAnswer
                     {
@@ -46,7 +46,7 @@ internal static class Decoder
                 }
                 case QuestionType.Score:
                 {
-                    var probs = new OrderedMap<double>();
+                    var probs = new OrderedDictionary<string, double>();
                     double expected = 0;
                     for (var i = 0; i < k; i++)
                     {

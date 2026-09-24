@@ -143,10 +143,10 @@ public static class LanguageDetector
     private static string ScriptFromCounts(List<(string Script, int Count)> counts) =>
         counts.All(c => c.Count == 0) ? "unknown" : counts.MaxBy(c => c.Count).Script;
 
-    private static OrderedMap<double> Profile(List<(string Script, int Count)> counts)
+    private static OrderedDictionary<string, double> Profile(List<(string Script, int Count)> counts)
     {
         var total = counts.Sum(c => c.Count);
-        var prof = new OrderedMap<double>();
+        var prof = new OrderedDictionary<string, double>();
         if (total == 0) return prof;
         foreach (var (s, c) in counts.OrderBy(c => c.Script == "latin" ? 0 : 1)) // stable: Latin first
             if (c > 0) prof[s] = (double)c / total;

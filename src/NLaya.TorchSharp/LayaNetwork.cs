@@ -19,7 +19,7 @@ internal sealed class LayaNetwork : IDisposable
     private readonly int _headHeads;
     private readonly ScalarType _dtype;
     private readonly Dictionary<(double Theta, long Len), (Tensor Cos, Tensor Sin)> _rope = new();
-    private readonly object _ropeLock = new();
+    private readonly Lock _ropeLock = new();
 
     public Device Device { get; }
 

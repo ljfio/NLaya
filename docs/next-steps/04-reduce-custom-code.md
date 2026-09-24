@@ -2,23 +2,12 @@
 
 Independent tasks that shrink what NLaya has to maintain. Each can be done on its own.
 
-## 4a. Target .NET 10 only
+## 4a. Target .NET 10 only (done)
 
-`Directory.Build.props` / `src/*/*.csproj` target `net8.0;net10.0`. Dropping `net8.0` (which reaches
-end of support in November 2026; .NET 10 is the current LTS) lets built-in types replace hand-written ones:
-
-- **`OrderedMap<TValue>` → `System.Collections.Generic.OrderedDictionary<string, TValue>`** (.NET 9+).
-  This is a **public API change**: `Questions` derives from `OrderedMap<Question>`, and
-  `LayaResult.Answers`, `ChoiceAnswer.Probabilities` and `ScoreAnswer.Probabilities` expose it.
-  Either derive `Questions` from `OrderedDictionary<string, Question>`, or keep `Questions` as a
-  thin wrapper. Result maps can be `OrderedDictionary<string, T>` or `IReadOnlyDictionary`.
-  Iteration order must stay insertion order: it drives batch row order and result key order.
-- **`System.Threading.Lock`** for the Router's `_lock` object.
-- **`JsonSchemaExporter`** is available with no extra package ([step 3](03-decide-typed-schemas.md)).
-- **Remove `net8`-only workarounds**, if any are found while doing this.
-
-Check first that TorchSharp 0.107 and ONNX Runtime 1.30 are fine on net10 only. They already run
-there in the tests, which target `net10.0`.
+All projects target `net10.0`. `OrderedMap<T>` became `System.Collections.Generic.OrderedDictionary<string, T>`
+(`Questions` derives from it, and results expose it), the Router and the TorchSharp rope cache use
+`System.Threading.Lock`, and `Microsoft.Extensions.Logging.Abstractions` / `System.Numerics.Tensors`
+moved to 10.0.x. No `net8`-only workarounds were found.
 
 ## 4b. Publish the ONNX exports to the Hub
 

@@ -5,7 +5,7 @@ namespace NLaya.Lang;
 /// <summary>Result of <see cref="LanguageDetector.Analyse(LayaState?)"/>; same fields as Python's <c>laya.lang.analyse</c>.</summary>
 public sealed record LanguageDetection(
     string Script,
-    OrderedMap<double> ScriptProfile,
+    OrderedDictionary<string, double> ScriptProfile,
     string? Language,
     bool IsEnglish,
     bool LanguageUndecided,

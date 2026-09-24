@@ -6,7 +6,7 @@ public sealed record ChoiceAnswer : Answer
 {
     public override QuestionType Type => QuestionType.Choice;
     public required string Choice { get; init; }
-    public required OrderedMap<double> Probabilities { get; init; }
+    public required OrderedDictionary<string, double> Probabilities { get; init; }
 
     public override JsonObject ToJson()
     {

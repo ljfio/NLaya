@@ -6,7 +6,7 @@ namespace NLaya;
 /// Question id -> <see cref="Question"/>, in order. Collection-initializer friendly:
 /// <c>new Questions { ["intent"] = Question.Choice(...), ... }</c>.
 /// </summary>
-public sealed class Questions : OrderedMap<Question>
+public sealed class Questions : OrderedDictionary<string, Question>
 {
     public Questions() { }
 

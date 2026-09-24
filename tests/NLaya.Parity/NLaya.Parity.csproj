@@ -16,6 +16,7 @@
     <ProjectReference Include="../../src/NLaya/NLaya.csproj" />
     <ProjectReference Include="../../src/NLaya.TorchSharp/NLaya.TorchSharp.csproj" />
     <ProjectReference Include="../../src/NLaya.Onnx/NLaya.Onnx.csproj" />
+    <ProjectReference Include="../../src/NLaya.Extensions.AI/NLaya.Extensions.AI.csproj" />
     
     <PackageReference Include="TorchSharp-cpu" Version="0.107.0" />
   </ItemGroup>

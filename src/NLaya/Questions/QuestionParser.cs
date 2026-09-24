@@ -59,7 +59,7 @@ internal static class QuestionParser
     /// <summary>Criteria (optional): descriptions keyed "true"/"false". Labels (optional): display names for the two options.</summary>
     private static Question ParseNoul(JsonNode? instructions, JsonNode? criteria, JsonObject question, Func<string, ArgumentException> error)
     {
-        var descriptions = new OrderedMap<JsonNode?>();
+        var descriptions = new OrderedDictionary<string, JsonNode?>();
         if (criteria is JsonObject dict)
         {
             var keys = dict.Select(kv => kv.Key.ToLowerInvariant()).ToList();

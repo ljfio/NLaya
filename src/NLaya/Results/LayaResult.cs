@@ -6,7 +6,7 @@ namespace NLaya;
 /// <summary>The answers for one state: the same shape as Python's <c>predict</c> result dict.</summary>
 public sealed class LayaResult
 {
-    public LayaResult(string model, OrderedMap<Answer> answers, Usage usage)
+    public LayaResult(string model, OrderedDictionary<string, Answer> answers, Usage usage)
     {
         Model = model;
         Answers = answers;
@@ -14,7 +14,7 @@ public sealed class LayaResult
     }
 
     public string Model { get; }
-    public OrderedMap<Answer> Answers { get; }
+    public OrderedDictionary<string, Answer> Answers { get; }
     public Usage Usage { get; }
 
     /// <summary>Set by <see cref="Routing.Router"/>: which checkpoint answered, and why.</summary>
