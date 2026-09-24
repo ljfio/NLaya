@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Text.Json;
 
 using static TorchSharp.torch;
@@ -50,21 +49,15 @@ internal static class SafeTensors
                 "BOOL" => ScalarType.Bool,
                 _ => throw new NotSupportedException($"safetensors dtype {e.DType} ({e.Name})"),
             };
-            var len = checked((int)(e.End - e.Start));
-            var buf = ArrayPool<byte>.Shared.Rent(Math.Max(1, len));
-            try
-            {
-                fs.Position = dataOffset + e.Start;
-                fs.ReadExactly(buf, 0, len);
-                using var raw = empty(e.Shape, src);
-                raw.bytes = buf.AsSpan(0, len);
-                var isFloat = src is ScalarType.Float16 or ScalarType.BFloat16 or ScalarType.Float32 or ScalarType.Float64;
-                result[e.Name] = raw.to(isFloat ? dtype : src, device).DetachFromDisposeScope();
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(buf);
-            }
+            // A plain array, not ArrayPool: the shared pool would keep the largest buffers (the
+            // multilingual embedding is ~790 MB) alive for the life of the process.
+            var buf = new byte[checked((int)(e.End - e.Start))];
+            fs.Position = dataOffset + e.Start;
+            fs.ReadExactly(buf);
+            using var raw = empty(e.Shape, src);
+            raw.bytes = buf;
+            var isFloat = src is ScalarType.Float16 or ScalarType.BFloat16 or ScalarType.Float32 or ScalarType.Float64;
+            result[e.Name] = raw.to(isFloat ? dtype : src, device).DetachFromDisposeScope();
         }
         return result;
     }

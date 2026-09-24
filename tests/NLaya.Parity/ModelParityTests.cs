@@ -4,7 +4,9 @@ using NLaya.TorchSharp;
 
 namespace NLaya.Parity;
 
-public class ModelParityTests(ParityFixture fx) : IClassFixture<ParityFixture>
+[Collection(ParityCollection.Name)]
+[TestCaseOrderer(typeof(ByModelOrderer))]
+public class ModelParityTests(ParityFixture fx)
 {
     private const double LogitTol = 2e-3;
     private const double ProbTol = 1e-3;

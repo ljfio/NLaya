@@ -20,7 +20,10 @@ public sealed class ParityFixture : IDisposable
     /// <summary>Fixture name -> (repo, subfolder), as make_fixtures.py generated them.</summary>
     public static readonly string[] Models = ["multilingual", "english", "typed_decisions"];
 
-    private readonly Dictionary<string, LayaAgent> _agents = new();
+    // One checkpoint at a time: all of them at once (~20 GB peak) doesn't fit a CI runner.
+    // ByModelOrderer keeps each class's cases grouped by checkpoint, so each loads about once.
+    private readonly Lock _lock = new();
+    private (string Key, LayaAgent Agent)? _current;
 
     public LayaAgent Agent(string backend, string model)
     {
@@ -28,17 +31,21 @@ public sealed class ParityFixture : IDisposable
         var onnxDir = OnnxRoot is null ? null : Path.Combine(OnnxRoot, model);
         if (backend == "onnx" && (onnxDir is null || !File.Exists(Path.Combine(onnxDir, "encoder.onnx"))))
             Assert.Skip($"set NLAYA_ONNX_ROOT to a directory with an export_onnx.py output in {model}/ to run ONNX parity tests");
-        lock (_agents)
+        lock (_lock)
         {
             var key = backend + ":" + model;
-            if (_agents.TryGetValue(key, out var agent)) return agent;
+            if (_current is { } c && c.Key == key) return c.Agent;
+            _current?.Agent.Dispose();
+            _current = null;
+            GC.Collect();
             var f = Fixture($"model_{model}.json");
             var repo = f["repo"]!.GetValue<string>();
             var sub = f["subfolder"]?.GetValue<string>();
-            agent = backend == "onnx"
+            var agent = backend == "onnx"
                 ? Laya.Load(onnxDir!, o => o.UseOnnx(onnxDir!))
                 : Laya.Load(repo, o => { o.Subfolder = sub; o.UseTorchSharp("cpu"); });
-            return _agents[key] = agent;
+            _current = (key, agent);
+            return agent;
         }
     }
 
@@ -55,6 +62,6 @@ public sealed class ParityFixture : IDisposable
 
     public void Dispose()
     {
-        foreach (var a in _agents.Values) a.Dispose();
+        _current?.Agent.Dispose();
     }
 }

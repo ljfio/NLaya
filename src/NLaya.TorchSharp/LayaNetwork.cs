@@ -87,14 +87,21 @@ internal sealed class LayaNetwork : IDisposable
 
         for (var i = 0; i < _cfg.NumHiddenLayers; i++)
         {
-            var p = $"encoder.layers.{i}.";
-            var isGlobal = _cfg.GlobalLayers[i];
-            var x = _w.ContainsKey(p + "attn_norm.weight") ? F.layer_norm(h, [d], W(p + "attn_norm.weight"), B(p + "attn_norm.bias"), eps) : h;
-            h = h + Attention(x, p, isGlobal ? globalMask : slidingMask, isGlobal ? _cfg.GlobalRopeTheta : _cfg.LocalRopeTheta, len);
-            var m = F.layer_norm(h, [d], W(p + "mlp_norm.weight"), B(p + "mlp_norm.bias"), eps);
-            var wi = F.linear(m, W(p + "mlp.Wi.weight"), B(p + "mlp.Wi.bias"));
-            var parts = wi.chunk(2, -1);
-            h = h + F.linear(Act(parts[0]) * parts[1], W(p + "mlp.Wo.weight"), B(p + "mlp.Wo.bias"));
+            // Free each layer's intermediates (attention scores, MLP activations) as soon as the layer is
+            // done; left to the caller's scope they add up to many GB over a long batch.
+            var prev = h;
+            using (NewDisposeScope())
+            {
+                var p = $"encoder.layers.{i}.";
+                var isGlobal = _cfg.GlobalLayers[i];
+                var x = _w.ContainsKey(p + "attn_norm.weight") ? F.layer_norm(h, [d], W(p + "attn_norm.weight"), B(p + "attn_norm.bias"), eps) : h;
+                h = h + Attention(x, p, isGlobal ? globalMask : slidingMask, isGlobal ? _cfg.GlobalRopeTheta : _cfg.LocalRopeTheta, len);
+                var m = F.layer_norm(h, [d], W(p + "mlp_norm.weight"), B(p + "mlp_norm.bias"), eps);
+                var wi = F.linear(m, W(p + "mlp.Wi.weight"), B(p + "mlp.Wi.bias"));
+                var parts = wi.chunk(2, -1);
+                h = (h + F.linear(Act(parts[0]) * parts[1], W(p + "mlp.Wo.weight"), B(p + "mlp.Wo.bias"))).MoveToOuterDisposeScope();
+            }
+            prev.Dispose();
         }
         return F.layer_norm(h, [d], W("encoder.final_norm.weight"), B("encoder.final_norm.bias"), eps);
     }

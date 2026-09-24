@@ -119,6 +119,12 @@ done
 - **Evicted agents aren't disposed.** When the Router evicts an agent, it drops the reference and
   lets the GC free it, because a concurrent call may still hold it. `Router.Dispose` disposes the
   agents it loaded.
+- **Free TorchSharp intermediates per layer.** `LayaNetwork.Encode` gives each encoder layer its own
+  `DisposeScope`. With one scope for the whole pass, an 8-row batch of ~640 tokens peaked at ~17 GB,
+  which killed the CI runner; now the parity suite peaks at ~5.6 GB. `SafeTensors.Load` uses plain
+  arrays, not `ArrayPool.Shared`, which kept the largest (~790 MB) buffers alive after loading.
+- **Parity tests hold one checkpoint at a time.** `ParityFixture` swaps agents, and `ByModelOrderer`
+  groups test cases by checkpoint so each loads about once.
 - **The guard preset trips on ordinary requests.** Python's `LayaGuardrail` applies one threshold (0.5)
   to noul and score answers alike. `harm_severity` has an expected level of about 0.51 for "What time
   does the office open?", so the default blocks it. NLaya keeps the default for parity; the README, the

@@ -5,7 +5,8 @@ using NLaya.Extensions.AI;
 namespace NLaya.Parity;
 
 /// <summary>The guardrail middleware with a real checkpoint in front of an echo chat client.</summary>
-public class GuardrailEndToEndTests(ParityFixture fx) : IClassFixture<ParityFixture>
+[Collection(ParityCollection.Name)]
+public class GuardrailEndToEndTests(ParityFixture fx)
 {
     [Fact]
     public async Task Blocks_a_jailbreak_and_passes_an_ordinary_request()
