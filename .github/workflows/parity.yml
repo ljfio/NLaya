@@ -37,7 +37,7 @@ jobs:
           path: ~/.cache/huggingface/hub
           key: hf-models-${{ hashFiles('tools/fixtures/LAYA_COMMIT') }}
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.2.0
 
       - name: Download checkpoints
         run: |

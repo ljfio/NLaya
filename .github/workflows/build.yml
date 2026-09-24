@@ -41,7 +41,7 @@ jobs:
           path: ~/.cache/huggingface/hub
           key: hf-tokenizers-${{ hashFiles('tools/fixtures/LAYA_COMMIT') }}
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.2.0
 
       - name: Download tokenizers
         run: |
