@@ -4,16 +4,6 @@ using System.Text.Json.Nodes;
 
 namespace NLaya.Calibration;
 
-/// <summary>A per-language temperature override (Python <c>lang_temperatures</c> entry).</summary>
-public sealed class LanguageTemperature
-{
-    /// <summary>Per question type (choice, score, noul). Null inherits the checkpoint's.</summary>
-    public IReadOnlyList<double>? Temperature { get; init; }
-
-    /// <summary>Per "type:bucket" key, e.g. "choice:11+". Only these; the checkpoint's buckets are not inherited.</summary>
-    public IReadOnlyDictionary<string, double>? TemperatureByOptions { get; init; }
-}
-
 /// <summary>Temperature scaling as in <c>laya.common</c>: buckets, clamping and language overrides.</summary>
 public sealed class TemperatureTable
 {
@@ -73,30 +63,19 @@ public sealed class TemperatureTable
 
     public static double Clamp(double t) => double.IsNaN(t) || double.IsInfinity(t) ? 1.0 : Math.Min(Max, Math.Max(Min, t));
 
-    public static double Clamp(JsonNode? t)
-    {
-        if (t is JsonValue v)
-        {
-            if (v.TryGetValue<JsonElement>(out var e))
-            {
-                if (e.ValueKind == JsonValueKind.Number) return Clamp(e.GetDouble());
-                if (e.ValueKind == JsonValueKind.String && double.TryParse(e.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var ds)) return Clamp(ds);
-                if (e.ValueKind is JsonValueKind.True) return Clamp(1.0);
-                if (e.ValueKind is JsonValueKind.False) return Clamp(0.0);
-                return 1.0;
-            }
-            if (v.TryGetValue<double>(out var d)) return Clamp(d);
-            if (v.TryGetValue<int>(out var i)) return Clamp(i);
-            if (v.TryGetValue<string>(out var s) && double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var ps)) return Clamp(ps);
-        }
-        return 1.0;
-    }
+    public static double Clamp(JsonNode? t) => AsDouble(t) is { } d ? Clamp(d) : 1.0;
 
-    private static bool SameValue(JsonNode? raw, double applied)
+    /// <summary>Python <c>float(t)</c>: a number, a numeric string or a bool; null for anything else.</summary>
+    private static double? AsDouble(JsonNode? t) => t?.GetValueKind() switch
     {
-        if (raw is JsonValue v && v.GetValueKind() == JsonValueKind.Number) return v.GetValue<double>() == applied;
-        return false;
-    }
+        JsonValueKind.Number => double.Parse(t.ToJsonString(), CultureInfo.InvariantCulture),
+        JsonValueKind.String when double.TryParse(t.GetValue<string>(), NumberStyles.Float, CultureInfo.InvariantCulture, out var d) => d,
+        JsonValueKind.True => 1.0,
+        JsonValueKind.False => 0.0,
+        _ => null,
+    };
+
+    private static bool SameValue(JsonNode? raw, double applied) => AsDouble(raw) == applied;
 
     private static string Repr(JsonNode? n) => n is null ? "None" : PythonJson.Serialize(n);
 

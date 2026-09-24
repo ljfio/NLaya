@@ -1,36 +1,13 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NLaya.Backends;
+
 using TorchSharp;
+
 using static TorchSharp.torch;
 
 namespace NLaya.TorchSharp;
-
-/// <summary>Settings for the TorchSharp backend.</summary>
-public sealed class TorchSharpOptions
-{
-    /// <summary>
-    /// "auto" (CUDA if available, else CPU), "cpu", "cuda", "cuda:1" or "mps". A device that is
-    /// not available falls back to CPU with a warning, like the Python library.
-    /// </summary>
-    public string Device { get; set; } = "auto";
-
-    /// <summary>Weight/compute precision. Null is float32; float16/bfloat16 are faster on GPUs.</summary>
-    public ScalarType? DType { get; set; }
-
-    /// <summary>CPU intra-op threads; null leaves libtorch's default.</summary>
-    public int? NumThreads { get; set; }
-
-    public ILogger? Logger { get; set; }
-}
-
-/// <summary>Runs Laya with TorchSharp (libtorch), loading <c>model.safetensors</c> directly.</summary>
-public sealed class TorchSharpBackendFactory(TorchSharpOptions options) : ILayaBackendFactory
-{
-    public IReadOnlyList<string> RequiredFiles { get; } = ["model.safetensors"];
-
-    public ILayaBackend Create(LayaCheckpoint checkpoint) => new TorchSharpBackend(checkpoint, options);
-}
 
 public sealed class TorchSharpBackend : ILayaBackend
 {
@@ -117,23 +94,4 @@ public sealed class TorchSharpBackend : ILayaBackend
     }
 
     public void Dispose() => _net.Dispose();
-}
-
-public static class TorchSharpLayaOptionsExtensions
-{
-    /// <summary>
-    /// Run with TorchSharp. Add a libtorch runtime package to your app: <c>TorchSharp-cpu</c>,
-    /// <c>TorchSharp-cuda-linux</c> or <c>TorchSharp-cuda-windows</c>.
-    /// </summary>
-    public static LayaOptions UseTorchSharp(this LayaOptions options, Action<TorchSharpOptions>? configure = null)
-    {
-        var o = new TorchSharpOptions { Logger = options.Logger };
-        configure?.Invoke(o);
-        options.Backend = new TorchSharpBackendFactory(o);
-        return options;
-    }
-
-    /// <summary>Run with TorchSharp on <paramref name="device"/> ("cpu", "cuda", "mps", "auto").</summary>
-    public static LayaOptions UseTorchSharp(this LayaOptions options, string device) =>
-        options.UseTorchSharp(o => o.Device = device);
 }

@@ -115,6 +115,22 @@ await using var agent = await Laya.LoadAsync("./onnx/multilingual", o => o.UseOn
 var router = new Router(new RouterOptions { ConfigureAgent = (name, o) => o.UseOnnx($"./onnx/{name}") });
 ```
 
+## Project layout
+
+| Project | What it holds |
+|---|---|
+| `src/NLaya` | The API (`Laya`, `LayaAgent`, `Question`/`Questions`, `LayaResult`, `Router`, `Presets`) and the ported Python logic, one type per file: `Sequences/` builds the prompt, `Calibration/` handles temperature and decoding, `Lang/` detects script and language, `Email/` cleans email bodies, `Hooks/` runs lifecycle hooks, `Hub/` looks up the HF cache |
+| `src/NLaya.TorchSharp` | `UseTorchSharp()`: the ModernBERT encoder and Laya decision head as TorchSharp ops, weights read from `model.safetensors` |
+| `src/NLaya.Onnx` | `UseOnnx(dir)`: runs `encoder.onnx` then `head.onnx` with ONNX Runtime |
+| `tests/NLaya.Tests` | Parity with Python for tokenization, prompts, JSON, routing and email (golden fixtures) |
+| `tests/NLaya.Parity` | Model parity for all three checkpoints on both backends |
+| `tools/fixtures` | Regenerates the fixtures and the embedded tables from the Python reference |
+| `samples/NLaya.Quickstart` | A single agent, then the Router across all three checkpoints |
+
+A backend only turns a padded batch of token ids into logits (`ILayaBackend.Run`). Everything
+before and after that, including tokenization, prompt layout, calibration and decoding, lives in
+`NLaya`, so both backends give identical answers.
+
 ## Tests
 
 ```bash

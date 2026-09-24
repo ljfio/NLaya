@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+
 using NLaya.Lang;
 
 namespace NLaya.Routing;
@@ -14,10 +15,4 @@ public sealed record RouteDecision(string Model, string Repo, string Reason, Lan
         ["detection"] = Detection?.ToJson(),
         ["workflow"] = Workflow,
     };
-}
-
-/// <summary>A checkpoint location: a Hub repo (or local path) and an optional subfolder.</summary>
-public sealed record CheckpointSpec(string Repo, string? Subfolder = null)
-{
-    public override string ToString() => Subfolder is null ? Repo : $"{Repo}/{Subfolder}";
 }

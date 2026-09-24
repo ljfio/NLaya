@@ -11,7 +11,7 @@ namespace NLaya;
 /// Python <c>repr</c> form. The model reads this text, so any byte of difference changes the
 /// tokens it sees.
 /// </summary>
-public static class PythonJson
+internal static class PythonJson
 {
     public static string Serialize(JsonNode? node)
     {
@@ -68,25 +68,15 @@ public static class PythonJson
             WriteElement(el, sb);
             return;
         }
-        switch (val.GetValueKind())
+        // A CLR value. Floating types are Python floats ("2.0", not "2"); anything else serializes as JSON.
+        switch (val.GetValue<object>())
         {
-            case JsonValueKind.String: WriteString(val.GetValue<string>(), sb); return;
-            case JsonValueKind.True: sb.Append("true"); return;
-            case JsonValueKind.False: sb.Append("false"); return;
-            case JsonValueKind.Null: sb.Append("null"); return;
+            case double d: sb.Append(FormatFloat(d)); break;
+            case float f: sb.Append(FormatFloat(f)); break;
+            case decimal m: sb.Append(FormatFloat((double)m)); break;
+            default: WriteElement(JsonSerializer.SerializeToElement(val), sb); break;
         }
-        // Numbers: CLR floating types are Python floats, integral types are Python ints.
-        if (val.TryGetValue<double>(out var d) && !IsIntegral(val)) { sb.Append(FormatFloat(d)); return; }
-        if (val.TryGetValue<float>(out var f)) { sb.Append(FormatFloat(f)); return; }
-        if (val.TryGetValue<decimal>(out var m) && !IsIntegral(val)) { sb.Append(FormatFloat((double)m)); return; }
-        if (val.TryGetValue<char>(out var c)) { WriteString(c.ToString(), sb); return; }
-        sb.Append(Convert.ToString(val.GetValue<object>(), CultureInfo.InvariantCulture));
     }
-
-    private static bool IsIntegral(JsonValue val) =>
-        val.TryGetValue<long>(out _) || val.TryGetValue<int>(out _) || val.TryGetValue<ulong>(out _)
-        || val.TryGetValue<short>(out _) || val.TryGetValue<byte>(out _) || val.TryGetValue<uint>(out _)
-        || val.TryGetValue<ushort>(out _) || val.TryGetValue<sbyte>(out _);
 
     private static void WriteElement(JsonElement el, StringBuilder sb)
     {

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+
 using NLaya.Backends;
 using NLaya.Calibration;
 using NLaya.Config;
@@ -93,69 +94,72 @@ public sealed class LayaAgent : HookRegistry, IDisposable, IAsyncDisposable
         return RunWithHooks(active, ctx, raise, c => Infer(c, batchSize, sortByLength));
     }
 
+    /// <summary>
+    /// Tokenize every state against every question, pack the rows into forward passes of at most
+    /// <paramref name="batchSize"/> states, and decode each pass. With <paramref name="sortByLength"/>,
+    /// states are grouped by length within windows of eight passes to cut padding; results keep input order.
+    /// </summary>
     private IList<LayaResult> Infer(PredictContext ctx, int? batchSize, bool sortByLength)
     {
         var states = ctx.States;
-        var questions = ctx.Questions;
         if (states.Count == 0) return [];
-        var ids = questions.Keys.ToList();
+        var ids = ctx.Questions.Keys.ToList();
         if (ids.Count == 0)
             return states.Select(_ => new LayaResult(ResultModelName, new OrderedMap<Answer>(), Usage.Zero)).ToList();
 
-        var qs = ids.Select(id => questions[id]).ToList();
+        var questions = ids.Select(id => ctx.Questions[id]).ToList();
         for (var i = 0; i < ids.Count; i++)
-            if (qs[i].Validate() is { } err) throw new ArgumentException($"question '{ids[i]}': {err}");
+            if (questions[i].Validate() is { } err) throw new ArgumentException($"question '{ids[i]}': {err}");
 
         var maxLen = ctx.MaxLen ?? Config.MaxLen;
         var headMaxLen = ctx.HeadMaxLen ?? Config.HeadMaxLen;
-        var chunk = batchSize is > 0 ? batchSize.Value : states.Count;
-        var reorder = sortByLength && chunk > 1 && chunk < states.Count;
-        var window = reorder ? chunk * 8 : chunk;
+        var perPass = batchSize is > 0 ? batchSize.Value : states.Count;
+        var sort = sortByLength && perPass > 1 && perPass < states.Count;
+        var window = sort ? perPass * 8 : perPass; // bounds how many tokenized states are held at once
 
-        var results = new List<LayaResult>(states.Count);
+        var results = new LayaResult[states.Count];
         for (var start = 0; start < states.Count; start += window)
         {
-            var part = states.Skip(start).Take(window).ToList();
-            var encoded = part.Select(s => EncodeState(s, ids, qs, maxLen, headMaxLen)).ToList();
-            var order = Enumerable.Range(0, encoded.Count).ToList();
-            if (reorder) order = order.OrderBy(i => encoded[i].Max(it => it.Ids.Length)).ToList(); // stable
-            var windowResults = new LayaResult[encoded.Count];
-            for (var offset = 0; offset < order.Count; offset += chunk)
-            {
-                var indices = order.Skip(offset).Take(chunk).ToList();
-                var items = indices.SelectMany(i => encoded[i]).ToList();
-                var batch = EncodedBatch.Collate(items, Tokenizer.PadId);
-                var output = Backend.Run(batch);
-                var act = Decoder.Softmax(output.ActLogits, output.Rows, output.ActOutputs);
-                var row = 0;
-                foreach (var index in indices)
-                {
-                    var n = encoded[index].Count;
-                    var tokens = 0;
-                    for (var r = row; r < row + n; r++) tokens += batch.Lengths[r];
-                    var answers = Decoder.Decode(output, act, row, ids, qs, encoded[index].Select(e => e.Markers.Length).ToList(),
-                        Temperatures, ctx.Lang);
-                    windowResults[index] = new LayaResult(ResultModelName, answers, new Usage(tokens));
-                    row += n;
-                }
-            }
-            results.AddRange(windowResults);
+            var encoded = Enumerable.Range(start, Math.Min(window, states.Count - start))
+                .Select(i => new EncodedState(i, EncodeState(states[i], ids, questions, maxLen, headMaxLen)))
+                .ToList();
+            if (sort) encoded = encoded.OrderBy(e => e.Rows.Max(r => r.Ids.Length)).ToList(); // stable
+            foreach (var pass in encoded.Chunk(perPass))
+                RunPass(pass, ids, questions, ctx.Lang, results);
         }
         return results;
     }
 
-    private List<EncodedItem> EncodeState(LayaState state, List<string> ids, List<Question> qs, int maxLen, int headMaxLen)
+    /// <summary>One forward pass over several states' question rows; writes each state's result by its input index.</summary>
+    private void RunPass(EncodedState[] states, List<string> ids, List<Question> questions, string? lang, LayaResult[] results)
+    {
+        var batch = EncodedBatch.Collate(states.SelectMany(s => s.Rows).ToList(), Tokenizer.PadId);
+        var output = Backend.Run(batch);
+        var act = Decoder.Softmax(output.ActLogits, output.Rows, output.ActOutputs);
+        var row = 0;
+        foreach (var state in states)
+        {
+            var optionCounts = state.Rows.Select(r => r.Markers.Length).ToList();
+            var answers = Decoder.Decode(output, act, row, ids, questions, optionCounts, Temperatures, lang);
+            var tokens = batch.Lengths.Skip(row).Take(state.Rows.Count).Sum();
+            results[state.Index] = new LayaResult(ResultModelName, answers, new Usage(tokens));
+            row += state.Rows.Count;
+        }
+    }
+
+    /// <summary>One sequence per question for <paramref name="state"/>, sharing a single tokenization of it.</summary>
+    private List<EncodedItem> EncodeState(LayaState state, List<string> ids, List<Question> questions, int maxLen, int headMaxLen)
     {
         var stateIds = SequenceBuilder.EncodeState(Tokenizer, state);
-        var items = new List<EncodedItem>(qs.Count);
-        for (var i = 0; i < qs.Count; i++)
+        var rows = new List<EncodedItem>(questions.Count);
+        for (var i = 0; i < questions.Count; i++)
         {
-            var item = SequenceBuilder.Build(Tokenizer, stateIds, qs[i], maxLen, headMaxLen, state.IsConversation);
-            if (item.Markers.Length != qs[i].OptionCount)
+            var row = SequenceBuilder.Build(Tokenizer, stateIds, questions[i], maxLen, headMaxLen, state.IsConversation);
+            if (row.Markers.Length != questions[i].OptionCount)
                 throw new ArgumentException($"question '{ids[i]}' options exceed head_max_len={headMaxLen}");
-            items.Add(item);
+            rows.Add(row);
         }
-        return items;
+        return rows;
     }
 
     public override string ToString() => $"LayaAgent(model_id='{ModelId}', backend={_backend?.Name ?? "disposed"})";

@@ -3,20 +3,6 @@ using System.Text.Json.Nodes;
 
 namespace NLaya;
 
-/// <summary>The three typed primitives the decision head answers.</summary>
-public enum QuestionType
-{
-    /// <summary>Pick one label from a set.</summary>
-    Choice = 0,
-    /// <summary>An ordinal level, index 0 first; the answer is the expected level.</summary>
-    Score = 1,
-    /// <summary>A boolean statement; the answer is P(true).</summary>
-    Noul = 2,
-}
-
-/// <summary>Display labels for a noul question's two options. Semantics stay false/true.</summary>
-public sealed record NoulLabels(string False, string True);
-
 /// <summary>
 /// One typed question. Build with <see cref="Choice(string, IEnumerable{KeyValuePair{string, string?}})"/>,
 /// <see cref="Score(string, IEnumerable{string})"/> or <see cref="Noul(string, string?, string?, NoulLabels?)"/>,
@@ -43,7 +29,7 @@ public sealed class Question
     /// <summary>Noul: optional display labels.</summary>
     public NoulLabels? Labels { get; }
 
-    private Question(QuestionType type, JsonNode? instructions, IReadOnlyList<KeyValuePair<string, JsonNode?>>? options,
+    internal Question(QuestionType type, JsonNode? instructions, IReadOnlyList<KeyValuePair<string, JsonNode?>>? options,
         IReadOnlyList<JsonNode?>? levels, IReadOnlyDictionary<string, JsonNode?>? noul, NoulLabels? labels)
     {
         Type = type;
@@ -123,91 +109,7 @@ public sealed class Question
     /// <c>{"type": "choice", "instructions": "...", "criteria": {"a": "...", "b": "..."}}</c>.
     /// Errors name the question the way Python's <c>Agent._check_question</c> does.
     /// </summary>
-    public static Question FromJson(JsonNode? node, string qid = "?")
-    {
-        string Err(string msg) => $"question '{qid}': {msg}";
-        if (node is not JsonObject o)
-            throw new ArgumentException(Err($"definition must be a dict, got {JsonKind(node)}"));
-        var typeName = o["type"] is JsonValue tv && tv.GetValueKind() == JsonValueKind.String ? tv.GetValue<string>() : null;
-        QuestionType type = typeName switch
-        {
-            "choice" => QuestionType.Choice,
-            "score" => QuestionType.Score,
-            "noul" => QuestionType.Noul,
-            _ => throw new ArgumentException(Err($"unknown type {PyRepr(o["type"])}; use one of ['choice', 'noul', 'score']")),
-        };
-        if (!o.ContainsKey("instructions"))
-            throw new ArgumentException(Err("no 'instructions'; add the text the model should answer"));
-        var ins = o["instructions"]?.DeepClone();
-        var crit = o["criteria"];
-        if (o.ContainsKey("labels") && type != QuestionType.Noul)
-            throw new ArgumentException(Err("'labels' is only supported for noul questions"));
-
-        switch (type)
-        {
-            case QuestionType.Choice:
-            {
-                List<KeyValuePair<string, JsonNode?>> opts = crit switch
-                {
-                    JsonObject co => co.Select(kv => new KeyValuePair<string, JsonNode?>(kv.Key, kv.Value?.DeepClone())).ToList(),
-                    JsonArray ca => ca.Select(c => new KeyValuePair<string, JsonNode?>(LabelText(c), null)).ToList(),
-                    _ => throw new ArgumentException(Err("a choice question takes 'criteria' as a dict of label -> description, or a list of labels")),
-                };
-                if (opts.Count == 0) throw new ArgumentException(Err("a choice question needs at least one criterion"));
-                return new Question(type, ins, opts, null, null, null);
-            }
-            case QuestionType.Score:
-            {
-                if (crit is not JsonArray levels)
-                    throw new ArgumentException(Err("a score question takes 'criteria' as a list of level descriptions, index 0 first"));
-                if (levels.Count == 0) throw new ArgumentException(Err("a score question needs at least one level"));
-                var nullAt = levels.Select((l, i) => (l, i)).FirstOrDefault(x => x.l is null, (null, -1)).Item2;
-                if (nullAt >= 0)
-                    throw new ArgumentException(Err($"score level {nullAt} is null; give every level a description, index 0 first"));
-                return new Question(type, ins, null, levels.Select(l => l?.DeepClone()).ToList(), null, null);
-            }
-            default:
-            {
-                var map = new OrderedMap<JsonNode?>();
-                if (crit is JsonObject no)
-                {
-                    var keys = no.Select(kv => kv.Key.ToLowerInvariant()).ToList();
-                    if (keys.Any(k => k is not ("true" or "false")))
-                        throw new ArgumentException(Err(
-                            $"a noul question takes 'criteria' keyed only 'true'/'false' (either or both, and omitted is fine), got [{string.Join(", ", keys.Order(StringComparer.Ordinal).Select(k => $"'{k}'"))}]. " +
-                            "Those keys are the option texts the model reads; any other key was silently dropped and replaced with the defaults. " +
-                            "If you want the answer worded differently, keep 'criteria' keyed 'true'/'false' and set 'labels' instead."));
-                    foreach (var (k, v) in no) map[k.ToLowerInvariant()] = v?.DeepClone();
-                }
-                else if (crit is not null)
-                {
-                    throw new ArgumentException(Err("a noul question takes 'criteria' as a dict with optional 'true'/'false' descriptions, or omits it"));
-                }
-                NoulLabels? labels = null;
-                if (o.ContainsKey("labels"))
-                {
-                    labels = ParseLabels(o["labels"]) ?? throw new ArgumentException(Err(LabelsError));
-                }
-                return new Question(type, ins, null, null, map, labels);
-            }
-        }
-    }
-
-    private const string LabelsError = "noul labels must map exactly 'false' and 'true' to distinct non-empty strings";
-
-    private static NoulLabels? ParseLabels(JsonNode? node)
-    {
-        if (node is not JsonObject lo || lo.Count != 2) return null;
-        if (lo["false"] is not JsonValue f || f.GetValueKind() != JsonValueKind.String) return null;
-        if (lo["true"] is not JsonValue t || t.GetValueKind() != JsonValueKind.String) return null;
-        var fs = f.GetValue<string>().Trim();
-        var ts = t.GetValue<string>().Trim();
-        return fs.Length == 0 || ts.Length == 0 || fs == ts ? null : new NoulLabels(fs, ts);
-    }
-
-    private static string LabelText(JsonNode? n) => n is JsonValue v && v.GetValueKind() == JsonValueKind.String
-        ? v.GetValue<string>()
-        : PythonJson.Serialize(n);
+    public static Question FromJson(JsonNode? node, string qid = "?") => QuestionParser.Parse(node, qid);
 
     /// <summary>The Python dict shape of this question.</summary>
     public JsonObject ToJson()
@@ -251,8 +153,8 @@ public sealed class Question
                 return "a score question needs at least one level";
             case QuestionType.Score when Levels.Any(l => l is null):
                 return $"score level {Levels.ToList().IndexOf(null)} is null; give every level a description, index 0 first";
-            case QuestionType.Noul when Labels is not null && ParseLabels(new JsonObject { ["false"] = Labels.False, ["true"] = Labels.True }) is null:
-                return LabelsError;
+            case QuestionType.Noul when Labels is not null && QuestionParser.ParseLabels(new JsonObject { ["false"] = Labels.False, ["true"] = Labels.True }) is null:
+                return QuestionParser.LabelsError;
         }
         return null;
     }
@@ -287,22 +189,4 @@ public sealed class Question
 
     internal static string RenderCriterion(JsonNode? n) =>
         n is JsonValue v && v.GetValueKind() == JsonValueKind.String ? v.GetValue<string>() : PythonJson.Serialize(n);
-
-    private static string JsonKind(JsonNode? n) => n switch
-    {
-        null => "NoneType",
-        JsonArray => "list",
-        JsonObject => "dict",
-        JsonValue v => v.GetValueKind() switch
-        {
-            JsonValueKind.String => "str",
-            JsonValueKind.Number => "number",
-            _ => "bool",
-        },
-        _ => "unknown",
-    };
-
-    private static string PyRepr(JsonNode? n) => n is JsonValue v && v.GetValueKind() == JsonValueKind.String
-        ? $"'{v.GetValue<string>()}'"
-        : n is null ? "None" : PythonJson.Serialize(n);
 }

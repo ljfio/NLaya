@@ -1,6 +1,7 @@
 using NLaya.Config;
-using TorchSharp;
+
 using static TorchSharp.torch;
+
 using F = TorchSharp.torch.nn.functional;
 
 namespace NLaya.TorchSharp;

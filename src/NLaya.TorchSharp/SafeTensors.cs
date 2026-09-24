@@ -1,6 +1,6 @@
 using System.Buffers;
 using System.Text.Json;
-using TorchSharp;
+
 using static TorchSharp.torch;
 
 namespace NLaya.TorchSharp;
@@ -8,9 +8,7 @@ namespace NLaya.TorchSharp;
 /// <summary>Reads a <c>.safetensors</c> file (8-byte header length, JSON header, raw little-endian data).</summary>
 internal static class SafeTensors
 {
-    public sealed record Entry(string Name, string DType, long[] Shape, long Start, long End);
-
-    public static IReadOnlyList<Entry> ReadHeader(string path, out long dataOffset)
+    public static IReadOnlyList<SafeTensorEntry> ReadHeader(string path, out long dataOffset)
     {
         using var fs = File.OpenRead(path);
         Span<byte> lenBytes = stackalloc byte[8];
@@ -21,12 +19,12 @@ internal static class SafeTensors
         fs.ReadExactly(header);
         dataOffset = 8 + headerLen;
         using var doc = JsonDocument.Parse(header);
-        var entries = new List<Entry>();
+        var entries = new List<SafeTensorEntry>();
         foreach (var p in doc.RootElement.EnumerateObject())
         {
             if (p.Name == "__metadata__") continue;
             var offs = p.Value.GetProperty("data_offsets");
-            entries.Add(new Entry(p.Name, p.Value.GetProperty("dtype").GetString()!,
+            entries.Add(new SafeTensorEntry(p.Name, p.Value.GetProperty("dtype").GetString()!,
                 p.Value.GetProperty("shape").EnumerateArray().Select(x => x.GetInt64()).ToArray(),
                 offs[0].GetInt64(), offs[1].GetInt64()));
         }

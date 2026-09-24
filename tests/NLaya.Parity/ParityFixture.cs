@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+
 using NLaya.Backends;
 using NLaya.Onnx;
 using NLaya.TorchSharp;
@@ -6,8 +7,9 @@ using NLaya.TorchSharp;
 namespace NLaya.Parity;
 
 /// <summary>
-/// Loads <c>convaiinnovations/laya-multilingual</c> once per test run. Model tests only run with
-/// <c>NLAYA_PARITY=1</c>, because they download ~680 MB the first time.
+/// Loads each checkpoint once per test run, from the Hugging Face cache. Model tests only run with
+/// <c>NLAYA_PARITY=1</c>: they need <c>convaiinnovations/laya</c> (english, typed-decisions/) and
+/// <c>convaiinnovations/laya-multilingual</c> fetched with <c>hf download</c>, ~2.5 GB.
 /// </summary>
 public sealed class ParityFixture : IDisposable
 {

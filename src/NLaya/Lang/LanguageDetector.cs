@@ -6,35 +6,6 @@ using System.Text.RegularExpressions;
 
 namespace NLaya.Lang;
 
-/// <summary>Result of <see cref="LanguageDetector.Analyse(LayaState?)"/>; same fields as Python's <c>laya.lang.analyse</c>.</summary>
-public sealed record LanguageDetection(
-    string Script,
-    OrderedMap<double> ScriptProfile,
-    string? Language,
-    bool IsEnglish,
-    bool LanguageUndecided,
-    double DiacriticRate,
-    double NonLatinFraction,
-    string? MixedSegment)
-{
-    public JsonObject ToJson()
-    {
-        var prof = new JsonObject();
-        foreach (var (k, v) in ScriptProfile) prof[k] = v;
-        return new JsonObject
-        {
-            ["script"] = Script,
-            ["script_profile"] = prof,
-            ["language"] = Language,
-            ["is_english"] = IsEnglish,
-            ["language_undecided"] = LanguageUndecided,
-            ["diacritic_rate"] = DiacriticRate,
-            ["non_latin_fraction"] = NonLatinFraction,
-            ["mixed_segment"] = MixedSegment,
-        };
-    }
-}
-
 /// <summary>
 /// Dependency-free script and language detection used to route between checkpoints: a port of
 /// <c>laya.lang</c>. Its word lists and script ranges are embedded from the Python module
@@ -43,7 +14,7 @@ public sealed record LanguageDetection(
 /// </summary>
 public static class LanguageDetector
 {
-    private static readonly Data D = Data.Load();
+    private static readonly LanguageData D = LanguageData.Load();
 
     // Python's \w is alphanumerics + '_' (no combining marks); these classes spell that out for .NET.
     private const string W = @"[\p{L}\p{N}_]";
@@ -208,8 +179,6 @@ public static class LanguageDetector
 
     // ---------------------------------------------------------------- Latin languages
 
-    private sealed record LatinEvidence(string? Language, int EnglishHits, double DiacriticRate, bool LooksNonEnglish);
-
     private static LatinEvidence LatinProfile(string text)
     {
         var words = Word.Matches(Identifier.Replace(text, " ").Replace("İ", "i").ToLowerInvariant()).Select(m => m.Value).ToList();
@@ -266,35 +235,4 @@ public static class LanguageDetector
     private static IEnumerable<Rune> Runes(string s) => s.EnumerateRunes();
     private static int CpLen(string s) => PyStr.Len(s);
     private static string CpTake(string s, int n) => PyStr.Take(s, n);
-
-    // ---------------------------------------------------------------- embedded tables
-
-    private sealed record Data(
-        List<(string Name, List<(int Lo, int Hi)> Ranges)> ScriptRanges,
-        List<(string Lang, HashSet<string> Words)> Stop,
-        HashSet<string> Shared,
-        HashSet<char> Diacritics,
-        double DiacriticRate,
-        double NonLatinFraction,
-        double NonLatinMinFraction,
-        int NonLatinMinLetters)
-    {
-        public static Data Load()
-        {
-            var o = Resources.Json("Lang.lang_data.json");
-            var stop = o["stopwords"]!.AsArray()
-                .Select(e => (e![0]!.GetValue<string>(), e[1]!.AsArray().Select(w => w!.GetValue<string>()).ToHashSet(StringComparer.Ordinal)))
-                .ToList();
-            return new Data(
-                o["script_ranges"]!.AsArray().Select(e => (e![0]!.GetValue<string>(),
-                    e[1]!.AsArray().Select(r => (r![0]!.GetValue<int>(), r[1]!.GetValue<int>())).ToList())).ToList(),
-                stop,
-                stop.SelectMany(s => s.Item2).GroupBy(w => w).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal),
-                o["non_en_diacritics"]!.GetValue<string>().ToHashSet(),
-                o["non_en_diacritic_rate"]!.GetValue<double>(),
-                o["non_latin_fraction"]!.GetValue<double>(),
-                o["non_latin_min_fraction"]!.GetValue<double>(),
-                o["non_latin_min_letters"]!.GetValue<int>());
-        }
-    }
 }

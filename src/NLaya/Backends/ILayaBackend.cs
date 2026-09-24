@@ -1,6 +1,3 @@
-using NLaya.Config;
-using NLaya.Tokenization;
-
 namespace NLaya.Backends;
 
 /// <summary>
@@ -14,24 +11,4 @@ public interface ILayaBackend : IDisposable
     string Name { get; }
 
     BackendOutput Run(EncodedBatch batch);
-}
-
-/// <summary>Everything a backend needs to build itself from a checkpoint directory.</summary>
-public sealed record LayaCheckpoint(
-    string ModelId,
-    string Directory,
-    AgentConfig Config,
-    ModernBertConfig? EncoderConfig,
-    LayaTokenizer Tokenizer)
-{
-    public string WeightsPath => Path.Combine(Directory, "model.safetensors");
-}
-
-/// <summary>Creates a backend for a checkpoint, and says which checkpoint files it needs.</summary>
-public interface ILayaBackendFactory
-{
-    /// <summary>Checkpoint files the backend needs besides config and tokenizer (e.g. "model.safetensors").</summary>
-    IReadOnlyList<string> RequiredFiles { get; }
-
-    ILayaBackend Create(LayaCheckpoint checkpoint);
 }

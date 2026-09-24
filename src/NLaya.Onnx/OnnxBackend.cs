@@ -1,20 +1,8 @@
 using Microsoft.ML.OnnxRuntime;
+
 using NLaya.Backends;
 
 namespace NLaya.Onnx;
-
-/// <summary>Settings for the ONNX Runtime backend.</summary>
-public sealed class OnnxOptions
-{
-    /// <summary>Directory holding <c>encoder.onnx</c> and <c>head.onnx</c> (from laya's <c>export_onnx.py</c>).</summary>
-    public required string ModelDir { get; init; }
-
-    /// <summary>Use the CUDA execution provider (needs Microsoft.ML.OnnxRuntime.Gpu); falls back to CPU.</summary>
-    public bool UseCuda { get; set; }
-
-    /// <summary>Tweak the session options (threads, other execution providers).</summary>
-    public Action<SessionOptions>? Configure { get; set; }
-}
 
 /// <summary>Runs the split ONNX export (encoder.onnx then head.onnx) with ONNX Runtime.</summary>
 public sealed class OnnxBackend : ILayaBackend
@@ -75,26 +63,5 @@ public sealed class OnnxBackend : ILayaBackend
     {
         _encoder.Dispose();
         _head.Dispose();
-    }
-}
-
-public sealed class OnnxBackendFactory(OnnxOptions options) : ILayaBackendFactory
-{
-    public IReadOnlyList<string> RequiredFiles { get; } = [];
-
-    public ILayaBackend Create(LayaCheckpoint checkpoint) => new OnnxBackend(options);
-}
-
-public static class OnnxLayaOptionsExtensions
-{
-    /// <summary>
-    /// Run with ONNX Runtime from an <c>export_onnx.py</c> output directory. Load the agent from
-    /// that same directory (it holds tokenizer.json and rl_agent_config.json), or from the Hub id
-    /// the export was made from.
-    /// </summary>
-    public static LayaOptions UseOnnx(this LayaOptions options, string modelDir, bool useCuda = false)
-    {
-        options.Backend = new OnnxBackendFactory(new OnnxOptions { ModelDir = modelDir, UseCuda = useCuda });
-        return options;
     }
 }
