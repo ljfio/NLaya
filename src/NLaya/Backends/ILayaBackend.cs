@@ -30,7 +30,7 @@ public sealed record LayaCheckpoint(
 /// <summary>Creates a backend for a checkpoint, and says which checkpoint files it needs.</summary>
 public interface ILayaBackendFactory
 {
-    /// <summary>Repo-relative files to download besides config and tokenizer (e.g. "model.safetensors").</summary>
+    /// <summary>Checkpoint files the backend needs besides config and tokenizer (e.g. "model.safetensors").</summary>
     IReadOnlyList<string> RequiredFiles { get; }
 
     ILayaBackend Create(LayaCheckpoint checkpoint);

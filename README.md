@@ -25,6 +25,20 @@ head, prompt layout, calibration, routing, language detection and email cleaning
 lists, email patterns and presets are embedded verbatim from the Python source
 (see `tools/fixtures/LAYA_COMMIT`).
 
+## Getting the models
+
+NLaya doesn't download anything. Fetch checkpoints with the [Hugging Face CLI](https://huggingface.co/docs/huggingface_hub/guides/cli)
+into the standard cache, where NLaya (and the Python library) look them up by repo id:
+
+```bash
+hf download convaiinnovations/laya-multilingual        # one checkpoint
+hf download convaiinnovations/laya                     # the bundle: english + multilingual/ + typed-decisions/ (what Router uses)
+```
+
+The cache location follows `HF_HUB_CACHE` / `HF_HOME` (default `~/.cache/huggingface/hub`), or set
+`LayaOptions.CacheDir`. `Laya.LoadAsync` also accepts any local directory that holds a checkpoint.
+If a checkpoint is missing, the error names the `hf download` command to run.
+
 ## Quickstart
 
 ```csharp
@@ -54,9 +68,6 @@ Console.WriteLine(result.ToJsonString(indented: true)); // same shape as Python'
 
 Questions can also be given in the Python dict shape with `Questions.Parse(json)`. `PredictBatch`
 answers the same questions for many states in shared forward passes.
-
-Checkpoints download into the standard Hugging Face cache (`HF_HOME`, `HF_TOKEN` and `HF_HUB_OFFLINE`
-are honoured), so NLaya and the Python library share downloads.
 
 ## Router: pick the checkpoint per request
 
@@ -107,8 +118,8 @@ var router = new Router(new RouterOptions { ConfigureAgent = (name, o) => o.UseO
 ## Tests
 
 ```bash
-dotnet test --project tests/NLaya.Tests                    # tokenizers, prompts, routing, email vs Python
-NLAYA_PARITY=1 dotnet test --project tests/NLaya.Parity    # all three checkpoints vs Python (downloads ~2.5 GB)
+dotnet test --project tests/NLaya.Tests                    # tokenizers, prompts, routing, email vs Python (tokenizer cases need the models cached)
+NLAYA_PARITY=1 dotnet test --project tests/NLaya.Parity    # all three checkpoints vs Python (needs: hf download convaiinnovations/laya and convaiinnovations/laya-multilingual)
 NLAYA_PARITY=1 NLAYA_ONNX_ROOT=./onnx dotnet test --project tests/NLaya.Parity   # + ONNX (onnx/<name>/)
 ```
 

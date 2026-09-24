@@ -13,9 +13,7 @@ public sealed class LayaOptions
     /// <summary>One checkpoint out of a repo that bundles several, e.g. "multilingual".</summary>
     public string? Subfolder { get; set; }
 
-    /// <summary>Hugging Face token; defaults to <c>HF_TOKEN</c>.</summary>
-    public string? Token { get; set; }
-
+    /// <summary>The cached revision to load (a branch/tag name or commit hash).</summary>
     public string Revision { get; set; } = "main";
 
     /// <summary>Overrides the Hugging Face cache directory.</summary>
@@ -30,8 +28,6 @@ public sealed class LayaOptions
     public bool HooksRaise { get; set; } = true;
 
     public ILogger? Logger { get; set; }
-
-    public IProgress<(string File, long Done, long? Total)>? DownloadProgress { get; set; }
 }
 
 /// <summary>Per-call settings for <see cref="LayaAgent.Predict(LayaState, Questions, PredictOptions?)"/>.</summary>

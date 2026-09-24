@@ -12,17 +12,9 @@ public static class Laya
     public const string DefaultModel = "convaiinnovations/laya";
     public const string MultilingualModel = "convaiinnovations/laya-multilingual";
 
-    internal static readonly string[] BaseFiles =
-    [
-        "rl_agent_config.json",
-        "encoder/config.json",
-        "tokenizer/tokenizer.json",
-        "tokenizer/tokenizer_config.json",
-    ];
-
     /// <summary>
-    /// Load a checkpoint from a local directory or the Hugging Face Hub (downloaded into the HF
-    /// cache on first use, then reused).
+    /// Load a checkpoint from a local directory, or by Hub id from the Hugging Face cache. NLaya does
+    /// not download: fetch checkpoints first with <c>hf download &lt;repo&gt;</c>.
     /// <code>
     /// await using var agent = await Laya.LoadAsync("convaiinnovations/laya-multilingual", o => o.UseTorchSharp());
     /// </code>
@@ -35,7 +27,7 @@ public static class Laya
         var factory = options.Backend ?? throw new InvalidOperationException(
             "No inference backend configured. Add NLaya.TorchSharp and call o.UseTorchSharp(), " +
             "or add NLaya.Onnx and call o.UseOnnx(dir).");
-        var dir = await ResolveAsync(modelIdOrPath, options, factory.RequiredFiles, ct).ConfigureAwait(false);
+        var dir = Resolve(modelIdOrPath, options, factory.RequiredFiles);
         var checkpoint = await Task.Run(() => ReadCheckpoint(modelIdOrPath, dir), ct).ConfigureAwait(false);
         var backend = await Task.Run(() => factory.Create(checkpoint), ct).ConfigureAwait(false);
         return new LayaAgent(checkpoint, backend, options);
@@ -45,9 +37,10 @@ public static class Laya
     public static LayaAgent Load(string modelIdOrPath = DefaultModel, Action<LayaOptions>? configure = null) =>
         LoadAsync(modelIdOrPath, configure).GetAwaiter().GetResult();
 
-    internal static async Task<string> ResolveAsync(string modelIdOrPath, LayaOptions options, IReadOnlyList<string> extraFiles,
-        CancellationToken ct)
+    /// <summary>A local directory, or a Hub id looked up in the Hugging Face cache (see <see cref="HfCache"/>).</summary>
+    internal static string Resolve(string modelIdOrPath, LayaOptions options, IReadOnlyList<string> requiredFiles)
     {
+        var sub = options.Subfolder is { Length: > 0 } s ? s.Trim('/') : null;
         string dir;
         if (System.IO.Directory.Exists(modelIdOrPath))
         {
@@ -55,21 +48,23 @@ public static class Laya
         }
         else
         {
-            if (Path.IsPathRooted(modelIdOrPath) || modelIdOrPath.StartsWith("./", StringComparison.Ordinal)
-                || modelIdOrPath.StartsWith("../", StringComparison.Ordinal) || modelIdOrPath.Count(c => c == '/') != 1)
-                throw new DirectoryNotFoundException(
-                    $"Local model path not found: '{modelIdOrPath}'. Check that the directory exists and that training saved the model successfully.");
-            var prefix = options.Subfolder is { Length: > 0 } s ? s.TrimEnd('/') + "/" : "";
-            using var hub = new HfHubClient(options.Token, options.CacheDir);
-            dir = await hub.DownloadAsync(modelIdOrPath, BaseFiles.Concat(extraFiles).Distinct().Select(f => prefix + f),
-                options.Revision, options.DownloadProgress, ct).ConfigureAwait(false);
+            if (Path.IsPathRooted(modelIdOrPath) || modelIdOrPath.StartsWith('.') || modelIdOrPath.Count(c => c == '/') != 1)
+                throw new DirectoryNotFoundException($"Local model path not found: '{modelIdOrPath}'.");
+            dir = HfCache.Snapshot(modelIdOrPath, options.Revision, options.CacheDir) ?? throw new DirectoryNotFoundException(
+                $"'{modelIdOrPath}' is not in the Hugging Face cache ({options.CacheDir ?? HfCache.DefaultDir()}). " +
+                $"Download it first: {HfCache.DownloadCommand(modelIdOrPath, sub, options.Revision)}");
         }
-        if (options.Subfolder is { Length: > 0 } sub)
+        if (sub is not null)
         {
             dir = Path.Combine(dir, sub);
             if (!System.IO.Directory.Exists(dir))
-                throw new DirectoryNotFoundException($"Subfolder '{sub}' not found in '{modelIdOrPath}'.");
+                throw new DirectoryNotFoundException($"Subfolder '{sub}' not found in '{modelIdOrPath}'. " +
+                    $"Download it with: {HfCache.DownloadCommand(modelIdOrPath, sub, options.Revision)}");
         }
+        var missing = requiredFiles.Where(f => !File.Exists(Path.Combine(dir, f))).ToList();
+        if (missing.Count > 0)
+            throw new FileNotFoundException($"'{modelIdOrPath}' is missing {string.Join(", ", missing)} (in {dir})." +
+                (System.IO.Directory.Exists(modelIdOrPath) ? "" : $" Download it with: {HfCache.DownloadCommand(modelIdOrPath, sub, options.Revision)}"));
         return dir;
     }
 
