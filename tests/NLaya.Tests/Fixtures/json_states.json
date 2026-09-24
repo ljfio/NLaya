@@ -1,0 +1,67 @@
+{
+ "cases": [
+  {
+   "state": "plain text",
+   "json": "plain text"
+  },
+  {
+   "state": {
+    "body": "I was charged twice",
+    "id": 42,
+    "ok": true,
+    "none": null,
+    "pi": 3.14,
+    "big": 1e+20,
+    "small": 1e-07,
+    "neg": -0.5,
+    "int_float": 2.0
+   },
+   "json": "{\"body\": \"I was charged twice\", \"id\": 42, \"ok\": true, \"none\": null, \"pi\": 3.14, \"big\": 1e+20, \"small\": 1e-07, \"neg\": -0.5, \"int_float\": 2.0}"
+  },
+  {
+   "state": {
+    "nested": {
+     "list": [
+      1,
+      2,
+      {
+       "x": "y"
+      }
+     ],
+     "unicode": "日本語 é",
+     "esc": "quote\" backslash\\ nl\n tab\t <>&'"
+    }
+   },
+   "json": "{\"nested\": {\"list\": [1, 2, {\"x\": \"y\"}], \"unicode\": \"日本語 é\", \"esc\": \"quote\\\" backslash\\\\ nl\\n tab\\t <>&'\"}}"
+  },
+  {
+   "state": [
+    {
+     "role": "user",
+     "content": "hi"
+    },
+    {
+     "role": "assistant",
+     "content": "hello"
+    }
+   ],
+   "json": "[{\"role\": \"user\", \"content\": \"hi\"}, {\"role\": \"assistant\", \"content\": \"hello\"}]"
+  },
+  {
+   "state": [
+    "turn one",
+    "turn two"
+   ],
+   "json": "[\"turn one\", \"turn two\"]"
+  },
+  {
+   "state": {
+    "ctrl": "\u0001\u001f",
+    "emoji": "🙂",
+    "empty": {},
+    "empty_list": []
+   },
+   "json": "{\"ctrl\": \"\\u0001\\u001f\", \"emoji\": \"🙂\", \"empty\": {}, \"empty_list\": []}"
+  }
+ ]
+}

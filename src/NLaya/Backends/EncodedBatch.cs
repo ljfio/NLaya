@@ -1,0 +1,89 @@
+using NLaya.Sequences;
+
+namespace NLaya.Backends;
+
+/// <summary>
+/// A padded batch of question rows, row-major. Mirrors <c>laya.common.collate_items</c>:
+/// <c>input_ids</c>/<c>attention_mask</c> are <c>[Rows, SeqLen]</c>, <c>marker_pos</c>/<c>marker_mask</c>
+/// are <c>[Rows, MaxMarkers]</c>, and <c>qtype</c> is <c>[Rows]</c>.
+/// </summary>
+public sealed class EncodedBatch
+{
+    public int Rows { get; }
+    public int SeqLen { get; }
+    public int MaxMarkers { get; }
+    public long[] InputIds { get; }
+    public long[] AttentionMask { get; }
+    public long[] MarkerPos { get; }
+    public bool[] MarkerMask { get; }
+    public long[] QType { get; }
+    /// <summary>Real (unpadded) length of each row.</summary>
+    public int[] Lengths { get; }
+    /// <summary>Real number of options of each row.</summary>
+    public int[] OptionCounts { get; }
+
+    private EncodedBatch(int rows, int seqLen, int maxMarkers)
+    {
+        Rows = rows;
+        SeqLen = seqLen;
+        MaxMarkers = maxMarkers;
+        InputIds = new long[rows * seqLen];
+        AttentionMask = new long[rows * seqLen];
+        MarkerPos = new long[rows * maxMarkers];
+        MarkerMask = new bool[rows * maxMarkers];
+        QType = new long[rows];
+        Lengths = new int[rows];
+        OptionCounts = new int[rows];
+    }
+
+    public static EncodedBatch Collate(IReadOnlyList<EncodedItem> items, int padId)
+    {
+        if (items.Count == 0) throw new ArgumentException("cannot collate an empty batch", nameof(items));
+        var seqLen = items.Max(i => i.Ids.Length);
+        var k = items.Max(i => i.Markers.Length);
+        var b = new EncodedBatch(items.Count, seqLen, k);
+        Array.Fill(b.InputIds, padId);
+        for (var r = 0; r < items.Count; r++)
+        {
+            var it = items[r];
+            for (var j = 0; j < it.Ids.Length; j++)
+            {
+                b.InputIds[r * seqLen + j] = it.Ids[j];
+                b.AttentionMask[r * seqLen + j] = 1;
+            }
+            for (var j = 0; j < it.Markers.Length; j++)
+            {
+                b.MarkerPos[r * k + j] = it.Markers[j];
+                b.MarkerMask[r * k + j] = true;
+            }
+            b.QType[r] = (int)it.Type;
+            b.Lengths[r] = it.Ids.Length;
+            b.OptionCounts[r] = it.Markers.Length;
+        }
+        return b;
+    }
+
+    /// <summary>Build directly from tensors (tests, fixtures).</summary>
+    public static EncodedBatch FromArrays(long[][] inputIds, long[][] attentionMask, long[][] markerPos, bool[][] markerMask, long[] qtype)
+    {
+        var rows = inputIds.Length;
+        var b = new EncodedBatch(rows, inputIds[0].Length, markerPos[0].Length);
+        for (var r = 0; r < rows; r++)
+        {
+            inputIds[r].CopyTo(b.InputIds, r * b.SeqLen);
+            attentionMask[r].CopyTo(b.AttentionMask, r * b.SeqLen);
+            markerPos[r].CopyTo(b.MarkerPos, r * b.MaxMarkers);
+            markerMask[r].CopyTo(b.MarkerMask, r * b.MaxMarkers);
+            b.QType[r] = qtype[r];
+            b.Lengths[r] = (int)attentionMask[r].Sum();
+            b.OptionCounts[r] = markerMask[r].Count(m => m);
+        }
+        return b;
+    }
+}
+
+/// <summary>
+/// Raw model outputs: <c>Logits</c> is <c>[Rows, MaxMarkers]</c> (missing options already masked to
+/// -1e4), <c>ActLogits</c> is <c>[Rows, ActOutputs]</c>. Softmax and temperature happen in the agent.
+/// </summary>
+public sealed record BackendOutput(float[] Logits, float[] ActLogits, int Rows, int MaxMarkers, int ActOutputs);

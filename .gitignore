@@ -1,0 +1,11 @@
+bin/
+obj/
+*.user
+.vs/
+.idea/
+TestResults/
+*.onnx
+model-*/
+.venv/
+__pycache__/
+.DS_Store
