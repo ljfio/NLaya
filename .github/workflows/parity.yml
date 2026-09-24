@@ -38,6 +38,8 @@ jobs:
           key: hf-models-${{ hashFiles('tools/fixtures/LAYA_COMMIT') }}
 
       - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: false # only used to run the hf CLI
 
       - name: Download checkpoints
         run: |
