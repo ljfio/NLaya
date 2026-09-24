@@ -1,0 +1,54 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # MinVer reads the version from tags
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      # Tokenizer, sequence and DI tests read the checkpoints' tokenizers and configs (a few MB);
+      # without them those cases skip rather than fail.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/huggingface/hub
+          key: hf-tokenizers-${{ hashFiles('tools/fixtures/LAYA_COMMIT') }}
+
+      - uses: astral-sh/setup-uv@v10
+
+      - name: Download tokenizers
+        run: |
+          for repo in convaiinnovations/laya convaiinnovations/laya-multilingual; do
+            uvx --from huggingface_hub hf download "$repo" --include "tokenizer/*" --include rl_agent_config.json --include encoder/config.json
+          done
+
+      - run: dotnet build NLaya.slnx -c Release
+
+      - run: dotnet test --project tests/NLaya.Tests -c Release --no-build

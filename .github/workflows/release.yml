@@ -1,0 +1,66 @@
+name: release
+
+# Push a tag like v0.1.0 to publish. MinVer turns the tag into the package version, and nuget.org
+# trusted publishing swaps GitHub's OIDC token for a short-lived API key, so no key is stored here.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub release
+      id-token: write # request the OIDC token for NuGet/login
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/huggingface/hub
+          key: hf-tokenizers-${{ hashFiles('tools/fixtures/LAYA_COMMIT') }}
+
+      - uses: astral-sh/setup-uv@v10
+
+      - name: Download tokenizers
+        run: |
+          for repo in convaiinnovations/laya convaiinnovations/laya-multilingual; do
+            uvx --from huggingface_hub hf download "$repo" --include "tokenizer/*" --include rl_agent_config.json --include encoder/config.json
+          done
+
+      - run: dotnet build NLaya.slnx -c Release
+
+      - run: dotnet test --project tests/NLaya.Tests -c Release --no-build
+
+      - run: dotnet pack NLaya.slnx -c Release --no-build -o artifacts
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: artifacts/*
+
+      - name: NuGet login (OIDC → temporary API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }} # nuget.org profile name, not email
+
+      - name: Push to nuget.org
+        run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" artifacts/*.nupkg artifacts/*.snupkg --generate-notes $([[ "$GITHUB_REF_NAME" == *-* ]] && echo --prerelease)

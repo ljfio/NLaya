@@ -7,8 +7,32 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
-    <Authors>Luke Fisher</Authors>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <Version>0.1.0</Version>
   </PropertyGroup>
+
+  <!-- Versions come from git tags (v0.1.0 -> 0.1.0); untagged commits are 0.1.0-alpha.0.<height>. -->
+  <PropertyGroup>
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+    <MinVerMinimumMajorMinor>0.1</MinVerMinimumMajorMinor>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MinVer" Version="8.0.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- NuGet metadata. Test and sample projects set IsPackable=false. -->
+  <PropertyGroup>
+    <Authors>Luke Fisher</Authors>
+    <Copyright>Copyright (c) Luke Fisher. A port of laya by Convai Innovations / NandhaKishorM.</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/ljfio/NLaya</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ljfio/NLaya</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>laya;decision;classification;guardrail;routing;llm;ai;modernbert;calibration</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(IsPackable)' != 'false' And Exists('$(MSBuildProjectDirectory)/README.md')">
+    <None Include="$(MSBuildProjectDirectory)/README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 </Project>

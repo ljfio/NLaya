@@ -100,6 +100,73 @@ agent.AddHook(LayaHooks.OnEnd(ctx => metrics.Record(ctx.Usage, ctx.ElapsedMs)));
 A hook implements any of `ILayaHook`'s events: `OnPredictStart` (it may rewrite the input or call
 `ctx.Skip(cached)`), `OnPredictEnd`, `OnError`, and for the Router `OnRoute`, `OnLoad` and `OnEvict`.
 
+## Microsoft.Extensions.AI
+
+`NLaya.Extensions.AI` puts Laya in front of any `IChatClient` (OpenAI, Azure OpenAI, Ollama, ...). It's the
+.NET counterpart of the Python LangChain integrations. Every decision is one `Predict` call on an
+`ILayaPredictor`, which both `LayaAgent` and `Router` implement.
+
+```csharp
+using Microsoft.Extensions.AI;
+using NLaya.Extensions.AI;
+
+// Guardrail: screen each user turn (Presets.Guard() by default) before the LLM sees it.
+IChatClient client = innerClient.AsBuilder()
+    .UseLayaGuardrail(agent, o =>
+    {
+        o.Action = GuardrailAction.Filter;   // Raise (default) throws LayaGuardrailException; Annotate lets it through
+        o.Thresholds["harm_severity"] = 2;   // see below
+    })
+    .Build();
+
+// Router: pick a chat client per request with a Laya choice question.
+var routed = new LayaRouterChatClient(agent, new LayaRouterChatClientOptions
+{
+    Routes =
+    {
+        ["simple"] = (smallModel, "greetings, FAQs, short factual questions"),
+        ["complex"] = (largeModel, "multi-step reasoning, code, analysis"),
+    },
+    Fallback = "complex",
+    ConfidenceThreshold = 0.6,
+    ConfidenceMeasure = RouteConfidence.Answer,   // calibrated max(p); Entropy (the default) matches Python
+});
+
+// Tool: let an LLM call Laya inside its own agent loop.
+var tools = new ChatOptions { Tools = [LayaTools.Triage(agent)] };
+```
+
+- **Guardrail violations** follow Python: a `noul` answer with P(true) ≥ threshold, or a `score` answer
+  whose expected level is ≥ threshold (0.5 by default). Choice answers never count. With the default
+  `Presets.Guard()`, `harm_severity` sits around 0.5 even for "When does the office open?", so set a
+  per-question threshold such as `Thresholds["harm_severity"] = 2` ("serious").
+- **Streaming** is checked once, before the first update.
+- **Results travel on the response**, not the client: `ChatResponse.AdditionalProperties` holds
+  `LayaChatProperties.Guardrail` (a `GuardrailResult`), `Route` and `Result`. On a stream they're on the
+  first update.
+
+`samples/NLaya.ChatGuardrail` runs all three against echo clients, so it needs no API key.
+
+## Dependency injection
+
+```csharp
+builder.Services.AddLaya(Laya.MultilingualModel, o => o.UseTorchSharp());            // singleton LayaAgent + ILayaPredictor
+builder.Services.AddKeyedLaya("english", Laya.DefaultModel, o => o.UseTorchSharp());  // several checkpoints
+builder.Services.AddLayaRouter(o => o.ConfigureAgent = (_, a) => a.UseTorchSharp());  // singleton Router + ILayaPredictor
+builder.Services.AddChatClient(innerClient).UseLayaGuardrail();                        // uses the registered ILayaPredictor
+```
+
+- Agents and the Router are singletons, and the container disposes them. `ILayaPredictor` resolves to
+  the first of `AddLaya` / `AddLayaRouter` registered.
+- Logging comes from the container's `ILoggerFactory`.
+- A hosted service loads the model at startup, so the first request doesn't pay the 1–4 s load. For the
+  Router it preloads `Laya:Preload`, or its default checkpoint. Turn it off with `"Laya": { "Warmup": false }`.
+- `LayaSettings` binds from the `"Laya"` section (`"Laya:<key>"` for a keyed agent): `Model`, `Subfolder`,
+  `Revision`, `CacheDir`, `Warmup`, and for the Router `MaxLoaded`, `Default`, `AutoTaskDetection`,
+  `StandaloneRepos` and `Preload`. The backend stays in code, and values set in code win.
+
+`samples/NLaya.WebApi` exposes `POST /triage` through the injected Router.
+
 ## ONNX Runtime
 
 Export each checkpoint once with laya's script, then point NLaya at the output directory:
@@ -122,10 +189,13 @@ var router = new Router(new RouterOptions { ConfigureAgent = (name, o) => o.UseO
 | `src/NLaya` | The API (`Laya`, `LayaAgent`, `Question`/`Questions`, `LayaResult`, `Router`, `Presets`) and the ported Python logic, one type per file: `Sequences/` builds the prompt, `Calibration/` handles temperature and decoding, `Lang/` detects script and language, `Email/` cleans email bodies, `Hooks/` runs lifecycle hooks, `Hub/` looks up the HF cache |
 | `src/NLaya.TorchSharp` | `UseTorchSharp()`: the ModernBERT encoder and Laya decision head as TorchSharp ops, weights read from `model.safetensors` |
 | `src/NLaya.Onnx` | `UseOnnx(dir)`: runs `encoder.onnx` then `head.onnx` with ONNX Runtime |
-| `tests/NLaya.Tests` | Parity with Python for tokenization, prompts, JSON, routing and email (golden fixtures) |
-| `tests/NLaya.Parity` | Model parity for all three checkpoints on both backends |
+| `src/NLaya.Extensions.AI` | `IChatClient` guardrail and router, `AIFunction` tools, and `AddLaya` / `AddLayaRouter` registration |
+| `tests/NLaya.Tests` | Parity with Python for tokenization, prompts, JSON, routing and email (golden fixtures), and the Extensions.AI middleware and DI with fakes |
+| `tests/NLaya.Parity` | Model parity for all three checkpoints on both backends, and an end-to-end guardrail test |
 | `tools/fixtures` | Regenerates the fixtures and the embedded tables from the Python reference |
 | `samples/NLaya.Quickstart` | A single agent, then the Router across all three checkpoints |
+| `samples/NLaya.ChatGuardrail` | Guardrail, router and tool over echo chat clients (no API key) |
+| `samples/NLaya.WebApi` | Minimal API: `POST /triage` through the DI-registered Router |
 
 A backend only turns a padded batch of token ids into logits (`ILayaBackend.Run`). Everything
 before and after that, including tokenization, prompt layout, calibration and decoding, lives in
@@ -142,10 +212,29 @@ NLAYA_PARITY=1 NLAYA_ONNX_ROOT=./onnx dotnet test --project tests/NLaya.Parity  
 The golden fixtures come from the Python reference at the commit in `tools/fixtures/LAYA_COMMIT`.
 `tools/fixtures/make_fixtures.py` regenerates them, along with the embedded tables.
 
+## Packages and releases
+
+| Package | Adds |
+|---|---|
+| `NLaya` | The core library; no native code |
+| `NLaya.TorchSharp` | The TorchSharp backend. The app adds `TorchSharp-cpu`, `TorchSharp-cuda-linux` or `TorchSharp-cuda-windows` |
+| `NLaya.Onnx` | The ONNX Runtime backend (CPU). Add `Microsoft.ML.OnnxRuntime.Gpu` for CUDA |
+| `NLaya.Extensions.AI` | `Microsoft.Extensions.AI` middleware and dependency injection |
+
+Versions come from git tags through [MinVer](https://github.com/adamralph/minver): tag `v0.1.0` builds
+`0.1.0`, and untagged commits build `0.1.0-alpha.0.<height>`. GitHub Actions runs:
+
+- **`build.yml`**: on every push and PR, on Ubuntu and macOS, builds and runs `tests/NLaya.Tests` (with the tokenizers downloaded).
+- **`parity.yml`**: nightly and on demand, downloads the checkpoints and runs model parity (TorchSharp).
+- **`release.yml`**: on a `v*` tag, tests, packs, pushes to nuget.org with
+  [trusted publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing) (no stored API key;
+  it needs a `NUGET_USER` secret with the nuget.org profile name), and creates a GitHub release.
+
 ## Roadmap
 
 Planned work, with the context needed to pick each item up, is in [`docs/next-steps/`](docs/next-steps/README.md):
-Microsoft.Extensions.AI middleware, dependency injection, `Decide<T>()` typed schemas, trimming
-custom code, an optional ML.NET pipeline stage, and NuGet packaging with CI.
+`Decide<T>()` typed schemas, publishing the ONNX exports, closing tokenizer gaps upstream, and an
+optional ML.NET pipeline stage.
 
-License: Apache-2.0 (same as laya).
+License: Apache-2.0 (same as laya). NLaya is a port of [laya](https://github.com/NandhaKishorM/laya) by
+Convai Innovations / NandhaKishorM, and the model weights are theirs.

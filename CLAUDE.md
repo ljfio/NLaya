@@ -21,7 +21,7 @@ and layout, and `docs/next-steps/README.md` for current status, planned work and
 ## Build and test
 
 ```bash
-dotnet build                                            # TreatWarningsAsErrors; unused usings (IDE0005) fail the build
+dotnet build NLaya.slnx                                 # TreatWarningsAsErrors; unused usings (IDE0005) fail the build
 dotnet test --project tests/NLaya.Tests                 # unit + fixture parity (xUnit v3 on MTP: use --project)
 NLAYA_PARITY=1 dotnet test --project tests/NLaya.Parity # model parity; needs `hf download convaiinnovations/laya` and `.../laya-multilingual`
 NLAYA_PARITY=1 NLAYA_ONNX_ROOT=$PWD/onnx dotnet test --project tests/NLaya.Parity   # + ONNX exports in onnx/<name>/
@@ -32,5 +32,7 @@ Run both test projects before committing changes to tokenization, prompts, decod
 ## Git
 
 Commit and push to `origin` (private GitHub repo `ljfio/NLaya`) when a piece of work is done.
+Releases: pushing a `v*` tag runs `.github/workflows/release.yml`, which publishes to nuget.org
+(MinVer takes the version from the tag). Never push a tag without the user asking.
 Keep `.gitignore` rules directory-scoped: macOS git ignores case, and a `*.onnx` pattern once hid
 `src/NLaya.Onnx/`.

@@ -3,14 +3,17 @@
 Each file here is one proposed piece of work, written to be picked up in a fresh session. Read
 this page first: it has the shared context the others assume.
 
-| # | File | What it adds | Suggested order |
+| # | File | What it adds | Status |
 |---|---|---|---|
-| 1 | [01-microsoft-extensions-ai.md](01-microsoft-extensions-ai.md) | Laya as `IChatClient` middleware (guardrail, router) | Do first, with 2 |
-| 2 | [02-dependency-injection.md](02-dependency-injection.md) | `services.AddLaya(...)` / `AddLayaRouter(...)` | Do first, with 1 |
+| 1 | Microsoft.Extensions.AI middleware | `NLaya.Extensions.AI`: guardrail, router, tools | Done |
+| 2 | Dependency injection | `AddLaya` / `AddKeyedLaya` / `AddLayaRouter`, settings, warm-up | Done |
 | 3 | [03-decide-typed-schemas.md](03-decide-typed-schemas.md) | `agent.Decide<T>()`: a C# type in, typed values out (port of `laya.structured`) | Next |
-| 4 | [04-reduce-custom-code.md](04-reduce-custom-code.md) | .NET 10 only, ONNX exports on the Hub, upstream tokenizer gaps | Any time |
+| 4 | [04-reduce-custom-code.md](04-reduce-custom-code.md) | ONNX exports on the Hub, upstream tokenizer gaps (4a, .NET 10 only, is done) | Any time |
 | 5 | [05-mlnet-pipeline-stage.md](05-mlnet-pipeline-stage.md) | An ML.NET `IEstimator`/`ITransformer` | Only if needed |
-| 6 | [06-packaging-and-ci.md](06-packaging-and-ci.md) | NuGet packages and GitHub Actions | Before any release |
+| 6 | NuGet packages and CI | MinVer versions, `build.yml`, `parity.yml`, `release.yml` with trusted publishing | Done; see "Before the first release" |
+
+Steps 1, 2 and 6 are described in the root `README.md` ("Microsoft.Extensions.AI", "Dependency
+injection", "Packages and releases"). Their planning docs were removed once done; they're in git history.
 
 ## Where the project stands
 
@@ -24,8 +27,12 @@ https://github.com/ljfio/NLaya.
 - **Verified:** against golden fixtures from the Python library at laya commit `970dc8c`
   (`tools/fixtures/LAYA_COMMIT`). That covers 2,593 unit tests (tokenization, prompts, JSON,
   1,104 routing cases, 259 email cases) and model parity for all three checkpoints on both backends.
-- **Not ported yet:** `decide` / `laya.structured` (step 3), `shortlist`, the LangChain integrations
-  (step 1 is the .NET equivalent), the HTTP server, MCP, CLI and training.
+- **Also works:** `NLaya.Extensions.AI` (the .NET equivalent of the LangChain integrations
+  `LayaGuardrail` and `LayaRouter`, plus `AIFunction` tools and DI registration), NuGet packaging and
+  GitHub Actions. Everything targets .NET 10 only.
+- **Not ported yet:** `decide` / `laya.structured` (step 3), `shortlist`, `LayaTriage` / `LayaEvaluator`
+  as chat middleware (`LayaTools.Triage` covers triage as a tool), remote `base_url` calls, the HTTP
+  server, MCP, CLI and training.
 - **Layout:** see "Project layout" in the root `README.md`. The library is one type per file.
   `ILayaBackend.Run` only maps a padded batch to logits; tokenization, prompt layout, calibration
   and decoding all live in `src/NLaya`.
@@ -41,6 +48,20 @@ https://github.com/ljfio/NLaya.
 - **One type per file.** Rewrite for clarity where it helps.
 - **Commit and push to GitHub** when work is done.
 
+## Before the first release
+
+- **nuget.org trusted publishing.** Add a policy on nuget.org (username menu > Trusted Publishing):
+  owner `ljfio`, repository `NLaya`, workflow file `release.yml`, no environment. Add the nuget.org
+  profile name as the `NUGET_USER` repository secret. Because the repo is private, the policy starts
+  "temporarily active" for 7 days and becomes permanent after the first successful publish.
+- **Decide visibility.** The repo is private; the package READMEs link to it. `NLaya` was free on
+  nuget.org when checked (September 2026).
+- **Run parity on Linux.** `parity.yml` does that (TorchSharp only). ONNX parity in CI waits on step 4b
+  (exports on the Hub), since exporting in CI means installing torch.
+- **macOS runners cost 10x minutes on private repos.** `build.yml` runs on Ubuntu and macOS; drop macOS
+  if minutes matter.
+- Try to reproduce the one-off exit crash with TorchSharp and ONNX Runtime in one process on Linux.
+
 ## Commands
 
 ```bash
@@ -52,6 +73,8 @@ dotnet test --project tests/NLaya.Tests             # fast; tokenizer cases skip
 NLAYA_PARITY=1 dotnet test --project tests/NLaya.Parity
 NLAYA_PARITY=1 NLAYA_ONNX_ROOT=$PWD/onnx dotnet test --project tests/NLaya.Parity   # needs onnx/<name>/ exports
 dotnet run --project samples/NLaya.Quickstart
+dotnet run --project samples/NLaya.ChatGuardrail
+dotnet pack NLaya.slnx -c Release -o artifacts       # version from git tags (MinVer); release by pushing a v* tag
 ```
 
 ONNX exports live in `./onnx/<name>/` (gitignored). Recreate them with laya's script, run from a laya
@@ -96,5 +119,12 @@ done
 - **Evicted agents aren't disposed.** When the Router evicts an agent, it drops the reference and
   lets the GC free it, because a concurrent call may still hold it. `Router.Dispose` disposes the
   agents it loaded.
+- **The guard preset trips on ordinary requests.** Python's `LayaGuardrail` applies one threshold (0.5)
+  to noul and score answers alike. `harm_severity` has an expected level of about 0.51 for "What time
+  does the office open?", so the default blocks it. NLaya keeps the default for parity; the README, the
+  sample and the end-to-end test set `Thresholds["harm_severity"] = 2`.
+- **`hf download --include` takes one pattern per flag.** Extra bare arguments are read as filenames and
+  the `--include` is silently ignored.
+- **The solution is `NLaya.slnx`.** Pass it explicitly (`dotnet build NLaya.slnx`) if another solution file appears.
 - **The model card's Hindi example** answers `sales` (0.58), not `billing`. Python does the same, so
   it isn't a port bug.
