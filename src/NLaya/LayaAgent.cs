@@ -18,7 +18,7 @@ public sealed class LayaAgent : HookRegistry, IDisposable, IAsyncDisposable
     private ILayaBackend? _backend;
 
     internal LayaAgent(LayaCheckpoint checkpoint, ILayaBackend backend, LayaOptions options)
-        : base(options.Hooks, options.HooksRaise, options.HooksConcurrent, options.Logger)
+        : base(options.Hooks, options.HooksRaise, options.Logger)
     {
         ModelId = checkpoint.ModelId;
         Directory = checkpoint.Directory;

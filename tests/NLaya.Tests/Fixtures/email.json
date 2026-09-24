@@ -1,0 +1,2340 @@
+{
+ "cases": [
+  {
+   "body": "Email cleaning: a disclaimer footer must not delete the sender's actual request.\n\nRegression tests for `laya.email.clean_email_body`. `_DISCLAIMER` used to be applied to whole\nparagraphs, so any paragraph that merely *mentioned* boilerplate was deleted outright. When the\nfooter ran on without a blank line, the request went with it:\n\n    clean_email_body(\"My account is locked.\\nThis email is confidential...\\nPlease unlock it.\")\n    # before: ''      <- the whole body, request included, was deleted\n    # after:  'My account is locked. Please unlock it.'\n\nDropping the request is silent and severe; leaving one boilerplate line behind is neither, so the\ncleaning errs towards keeping text.\n\nThe same asymmetry drives the sign-off tests below. `_SIGNATURE_MARKERS` allowed a whole\nsentence behind the closing word, so an ordinary body line beginning with one of them was read\nas the start of a signature and everything after it was cut:\n\n    clean_email_body(\"Hi,\\n\\nThanks for the quick reply.\\nCould you refund invoice 4411?\")\n    # before: 'Hi,'    <- the request was cut away\n\nThe last block guards a different kind of silence. `email_questions` was defined twice, here and\nin `laya/presets.py`, and `laya/__init__.py` re-exports the `presets` one. Editing the copy in\n`laya/email.py` moved `laya.email.email_questions` and left `laya.email_questions` where it was,\nwith no test and no lint failing.\n",
+   "clean": "Email cleaning: a disclaimer footer must not delete the sender's actual request.\n\nRegression tests for `laya.email.clean_email_body`. `_DISCLAIMER` used to be applied to whole\nparagraphs, so any paragraph that merely *mentioned* boilerplate was deleted outright. When the\nfooter ran on without a blank line, the request went with it:\n\nclean_email_body(\"My account is locked.\nThis email is confidential...\nPlease unlock it.\")\n # before: '' <- the whole body, request included, was deleted\n # after: 'My account is locked. Please unlock it.'\n\nDropping the request is silent and severe; leaving one boilerplate line behind is neither, so the\ncleaning errs towards keeping text.\n\nThe same asymmetry drives the sign-off tests below. `_SIGNATURE_MARKERS` allowed a whole\nsentence behind the closing word, so an ordinary body line beginning with one of them was read\nas the start of a signature and everything after it was cut:\n\nclean_email_body(\"Hi,\n\nThanks for the quick reply.\nCould you refund invoice 4411?\")\n # before: 'Hi,' <- the request was cut away\n\nThe last block guards a different kind of silence. `email_questions` was defined twice, here and\nin `laya/presets.py`, and `laya/__init__.py` re-exports the `presets` one. Editing the copy in\n`laya/email.py` moved `laya.email.email_questions` and left `laya.email_questions` where it was,\nwith no test and no lint failing.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Email cleaning: a disclaimer footer must not delete the sender's actual request.\n\nRegression tests for `laya.email.clean_email_body`. `_DISCLAIMER` used to be applied to whole\nparagraphs, so any paragraph that merely *mentioned* boilerplate was deleted outright. When the\nfooter ran on without a blank line, the request went with it:\n\nclean_email_body(\"My account is locked.\nThis email is confidential...\nPlease unlock it.\")\n # before: '' <- the whole body, request included, was deleted\n # after: 'My account is locked. Please unlock it.'\n\nDropping the request is silent and severe; leaving one boilerplate line behind is neither, so the\ncleaning errs towards keeping text.\n\nThe same asymmetry drives the sign-off tests below. `_SIGNATURE_MARKERS` allowed a whole\nsentence behind the closing word, so an ordinary body line beginning with one of them was read\nas the start of a signature and everything after it was cut:\n\nclean_email_body(\"Hi,\n\nThanks for the quick reply.\nCould you refund invoice 4411?\")\n # before: 'Hi,' <- the request was cut away\n\nThe last block guards a different kind of silence. `email_questions` was defined twice, here and\nin `laya/presets.py`, and `laya/__init__.py` re-exports the `presets` one. Editing the copy in\n`laya/email.py` moved `laya.email.email_questions` and left `laya.email_questions` where it was,\nwith no test and no lint failing.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "This email is confidential and intended solely for the named addressee.",
+   "clean": "",
+   "state": {
+    "subject": "Subject line",
+    "body": "",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Olá equipe,\n\nFomos cobrados duas vezes na fatura de março. Por favor, estornem a cobrança duplicada hoje.\n\nAtenciosamente,\nJoão Silva\nFinanceiro - ACME Ltda\n\nEnviado do meu iPhone\n\nEsta mensagem pode conter informações confidenciais. Se você recebeu esta mensagem por engano, favor apagá-la.\n\nEm seg., 22 de set. de 2026 às 10:14, Suporte <suporte@x.com> escreveu:\n> Olá João, recebemos seu chamado de cancelamento do plano Enterprise.\n",
+   "clean": "Olá equipe,\n\nFomos cobrados duas vezes na fatura de março. Por favor, estornem a cobrança duplicada hoje.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Olá equipe,\n\nFomos cobrados duas vezes na fatura de março. Por favor, estornem a cobrança duplicada hoje.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Preciso da segunda via do boleto.",
+   "clean": "Preciso da segunda via do boleto.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Preciso da segunda via do boleto.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\n\nThanks for the quick reply.\nCould you refund invoice 4411 as well?",
+   "clean": "Hi,\n\nThanks for the quick reply.\nCould you refund invoice 4411 as well?",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\n\nThanks for the quick reply.\nCould you refund invoice 4411 as well?",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\n\nPlease refund invoice 4411.",
+   "clean": "Hi,\n\nPlease refund invoice 4411.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\n\nPlease refund invoice 4411.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "inline footer/no blank line keeps the request",
+   "clean": "inline footer/no blank line keeps the request",
+   "state": {
+    "subject": "Subject line",
+    "body": "inline footer/no blank line keeps the request",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "My account is locked. Please unlock it.",
+   "clean": "My account is locked. Please unlock it.",
+   "state": {
+    "subject": "Subject line",
+    "body": "My account is locked. Please unlock it.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "inline footer/unpunctuated request line is fully recovered",
+   "clean": "inline footer/unpunctuated request line is fully recovered",
+   "state": {
+    "subject": "Subject line",
+    "body": "inline footer/unpunctuated request line is fully recovered",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "My account is locked Please unlock it.",
+   "clean": "My account is locked Please unlock it.",
+   "state": {
+    "subject": "Subject line",
+    "body": "My account is locked Please unlock it.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "inline footer/fused request without a trailing sentence",
+   "clean": "inline footer/fused request without a trailing sentence",
+   "state": {
+    "subject": "Subject line",
+    "body": "inline footer/fused request without a trailing sentence",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Please unlock my account",
+   "clean": "Please unlock my account",
+   "state": {
+    "subject": "Subject line",
+    "body": "Please unlock my account",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "inline footer/fused order reference is fully recovered",
+   "clean": "inline footer/fused order reference is fully recovered",
+   "state": {
+    "subject": "Subject line",
+    "body": "inline footer/fused order reference is fully recovered",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "RMA 5521 is still pending Please advise.",
+   "clean": "RMA 5521 is still pending Please advise.",
+   "state": {
+    "subject": "Subject line",
+    "body": "RMA 5521 is still pending Please advise.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "inline footer/capitalised continuation stays",
+   "clean": "inline footer/capitalised continuation stays",
+   "state": {
+    "subject": "Subject line",
+    "body": "inline footer/capitalised continuation stays",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Please delete it.",
+   "clean": "Please delete it.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Please delete it.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "inline footer/lowercase fusion still recovers the tail",
+   "clean": "inline footer/lowercase fusion still recovers the tail",
+   "state": {
+    "subject": "Subject line",
+    "body": "inline footer/lowercase fusion still recovers the tail",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "please unlock it.",
+   "clean": "please unlock it.",
+   "state": {
+    "subject": "Subject line",
+    "body": "please unlock it.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "inline footer/body is never emptied",
+   "clean": "inline footer/body is never emptied",
+   "state": {
+    "subject": "Subject line",
+    "body": "inline footer/body is never emptied",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "My account is locked.",
+   "clean": "My account is locked.",
+   "state": {
+    "subject": "Subject line",
+    "body": "My account is locked.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "inline footer/is not empty",
+   "clean": "inline footer/is not empty",
+   "state": {
+    "subject": "Subject line",
+    "body": "inline footer/is not empty",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "email_state/body keeps the request",
+   "clean": "email_state/body keeps the request",
+   "state": {
+    "subject": "Subject line",
+    "body": "email_state/body keeps the request",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "standalone footer paragraph is still dropped",
+   "clean": "standalone footer paragraph is still dropped",
+   "state": {
+    "subject": "Subject line",
+    "body": "standalone footer paragraph is still dropped",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "wrapped standalone footer is still dropped",
+   "clean": "wrapped standalone footer is still dropped",
+   "state": {
+    "subject": "Subject line",
+    "body": "wrapped standalone footer is still dropped",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "received-in-error footer is still dropped",
+   "clean": "received-in-error footer is still dropped",
+   "state": {
+    "subject": "Subject line",
+    "body": "received-in-error footer is still dropped",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Please reopen ticket 4411.",
+   "clean": "Please reopen ticket 4411.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Please reopen ticket 4411.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "quoted history is still removed",
+   "clean": "quoted history is still removed",
+   "state": {
+    "subject": "Subject line",
+    "body": "quoted history is still removed",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Thanks for the update.",
+   "clean": "Thanks for the update.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Thanks for the update.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "signature block is still removed",
+   "clean": "signature block is still removed",
+   "state": {
+    "subject": "Subject line",
+    "body": "signature block is still removed",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi team,\nCan you confirm the refund?",
+   "clean": "Hi team,\nCan you confirm the refund?",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi team,\nCan you confirm the refund?",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "empty body stays empty",
+   "clean": "empty body stays empty",
+   "state": {
+    "subject": "Subject line",
+    "body": "empty body stays empty",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/full reply keeps only the request",
+   "clean": "pt/full reply keeps only the request",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/full reply keeps only the request",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Olá equipe,\n\nFomos cobrados duas vezes na fatura de março. Por favor, estornem a cobrança duplicada hoje.",
+   "clean": "Olá equipe,\n\nFomos cobrados duas vezes na fatura de março. Por favor, estornem a cobrança duplicada hoje.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Olá equipe,\n\nFomos cobrados duas vezes na fatura de março. Por favor, estornem a cobrança duplicada hoje.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/outlook original-message block is cut",
+   "clean": "pt/outlook original-message block is cut",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/outlook original-message block is cut",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Segue o comprovante do pagamento.",
+   "clean": "Segue o comprovante do pagamento.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Segue o comprovante do pagamento.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/outlook header without separator is cut",
+   "clean": "pt/outlook header without separator is cut",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/outlook header without separator is cut",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Segue o comprovante.",
+   "clean": "Segue o comprovante.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Segue o comprovante.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/gmail attribution wrapped over two lines is cut whole",
+   "clean": "pt/gmail attribution wrapped over two lines is cut whole",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/gmail attribution wrapped over two lines is cut whole",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "O acesso voltou, obrigado.",
+   "clean": "O acesso voltou, obrigado.",
+   "state": {
+    "subject": "Subject line",
+    "body": "O acesso voltou, obrigado.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/short sign-off is removed",
+   "clean": "pt/short sign-off is removed",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/short sign-off is removed",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Bom dia,\nO boleto de março não chegou.",
+   "clean": "Bom dia,\nO boleto de março não chegou.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Bom dia,\nO boleto de março não chegou.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "es/reply keeps only the request",
+   "clean": "es/reply keeps only the request",
+   "state": {
+    "subject": "Subject line",
+    "body": "es/reply keeps only the request",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hola,\nNo puedo acceder a mi cuenta desde ayer.",
+   "clean": "Hola,\nNo puedo acceder a mi cuenta desde ayer.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hola,\nNo puedo acceder a mi cuenta desde ayer.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "es/disclaimer footer is dropped",
+   "clean": "es/disclaimer footer is dropped",
+   "state": {
+    "subject": "Subject line",
+    "body": "es/disclaimer footer is dropped",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Necesito la factura de marzo.",
+   "clean": "Necesito la factura de marzo.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Necesito la factura de marzo.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/request mentioning `confidencial` is kept",
+   "clean": "pt/request mentioning `confidencial` is kept",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/request mentioning `confidencial` is kept",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Preciso do contrato confidencial assinado até sexta.",
+   "clean": "Preciso do contrato confidencial assinado até sexta.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Preciso do contrato confidencial assinado até sexta.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/`Obrigado` opening a sentence is not a signature",
+   "clean": "pt/`Obrigado` opening a sentence is not a signature",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/`Obrigado` opening a sentence is not a signature",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Oi,\nRecebi a resposta.\nObrigado pelo retorno, mas continua\nsem funcionar.",
+   "clean": "Oi,\nRecebi a resposta.\nObrigado pelo retorno, mas continua\nsem funcionar.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Oi,\nRecebi a resposta.\nObrigado pelo retorno, mas continua\nsem funcionar.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/`caso tenha recebido` footer is dropped",
+   "clean": "pt/`caso tenha recebido` footer is dropped",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/`caso tenha recebido` footer is dropped",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Favor reenviar a nota fiscal.",
+   "clean": "Favor reenviar a nota fiscal.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Favor reenviar a nota fiscal.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/gmail attribution wrapped inside the name is cut whole",
+   "clean": "pt/gmail attribution wrapped inside the name is cut whole",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/gmail attribution wrapped inside the name is cut whole",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Resolvido, pode fechar.",
+   "clean": "Resolvido, pode fechar.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Resolvido, pode fechar.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "en/wrapped attribution is cut whole too",
+   "clean": "en/wrapped attribution is cut whole too",
+   "state": {
+    "subject": "Subject line",
+    "body": "en/wrapped attribution is cut whole too",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Fixed, thanks.",
+   "clean": "Fixed, thanks.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Fixed, thanks.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/`Em ... escreveu:` without a date is body text",
+   "clean": "pt/`Em ... escreveu:` without a date is body text",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/`Em ... escreveu:` without a date is body text",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Oi,\nEm resposta ao que você escreveu:\no pedido 4411 ainda não chegou.",
+   "clean": "Oi,\nEm resposta ao que você escreveu:\no pedido 4411 ainda não chegou.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Oi,\nEm resposta ao que você escreveu:\no pedido 4411 ainda não chegou.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/`destinado exclusivamente` in a request is kept",
+   "clean": "pt/`destinado exclusivamente` in a request is kept",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/`destinado exclusivamente` in a request is kept",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "O valor é destinado exclusivamente ao pagamento do boleto. Podem confirmar?",
+   "clean": "O valor é destinado exclusivamente ao pagamento do boleto. Podem confirmar?",
+   "state": {
+    "subject": "Subject line",
+    "body": "O valor é destinado exclusivamente ao pagamento do boleto. Podem confirmar?",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/`De:` without an address is body text",
+   "clean": "pt/`De:` without an address is body text",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/`De:` without an address is body text",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Preciso das férias.\nDe: 10/09 a 15/09\nPode aprovar?",
+   "clean": "Preciso das férias.\nDe: 10/09 a 15/09\nPode aprovar?",
+   "state": {
+    "subject": "Subject line",
+    "body": "Preciso das férias.\nDe: 10/09 a 15/09\nPode aprovar?",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "en/`From:` quote header keeps the new request",
+   "clean": "en/`From:` quote header keeps the new request",
+   "state": {
+    "subject": "Subject line",
+    "body": "en/`From:` quote header keeps the new request",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nPlease refund the duplicate charge today.",
+   "clean": "Hi,\nPlease refund the duplicate charge today.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nPlease refund the duplicate charge today.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "en/outlook download line removed",
+   "clean": "en/outlook download line removed",
+   "state": {
+    "subject": "Subject line",
+    "body": "en/outlook download line removed",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Please resend the invoice.",
+   "clean": "Please resend the invoice.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Please resend the invoice.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "signoff word/short mail keeps the request",
+   "clean": "signoff word/short mail keeps the request",
+   "state": {
+    "subject": "Subject line",
+    "body": "signoff word/short mail keeps the request",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "signoff word/thanks mid-body keeps what follows",
+   "clean": "signoff word/thanks mid-body keeps what follows",
+   "state": {
+    "subject": "Subject line",
+    "body": "signoff word/thanks mid-body keeps what follows",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hello,\n\nWe were billed twice in March.\nThanks for looking into it.\nThe duplicate is 49 EUR on invoice 4411.",
+   "clean": "Hello,\n\nWe were billed twice in March.\nThanks for looking into it.\nThe duplicate is 49 EUR on invoice 4411.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hello,\n\nWe were billed twice in March.\nThanks for looking into it.\nThe duplicate is 49 EUR on invoice 4411.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "signoff word/best mid-body keeps what follows",
+   "clean": "signoff word/best mid-body keeps what follows",
+   "state": {
+    "subject": "Subject line",
+    "body": "signoff word/best mid-body keeps what follows",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi team,\n\nOur account is locked.\nBest practice would be a manual unlock.\nPlease unlock account 88213 today.",
+   "clean": "Hi team,\n\nOur account is locked.\nBest practice would be a manual unlock.\nPlease unlock account 88213 today.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi team,\n\nOur account is locked.\nBest practice would be a manual unlock.\nPlease unlock account 88213 today.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "signoff word/email_state keeps the request",
+   "clean": "signoff word/email_state keeps the request",
+   "state": {
+    "subject": "Subject line",
+    "body": "signoff word/email_state keeps the request",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "word only/body is never emptied",
+   "clean": "word only/body is never emptied",
+   "state": {
+    "subject": "Subject line",
+    "body": "word only/body is never emptied",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "word only/email_state keeps the request",
+   "clean": "word only/email_state keeps the request",
+   "state": {
+    "subject": "Subject line",
+    "body": "word only/email_state keeps the request",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Is this confidential?",
+   "clean": "Is this confidential?",
+   "state": {
+    "subject": "Subject line",
+    "body": "Is this confidential?",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "word only/request before a footer survives",
+   "clean": "word only/request before a footer survives",
+   "state": {
+    "subject": "Subject line",
+    "body": "word only/request before a footer survives",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "word only/request inside one sentence survives",
+   "clean": "word only/request inside one sentence survives",
+   "state": {
+    "subject": "Subject line",
+    "body": "word only/request inside one sentence survives",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Please unlock it.",
+   "clean": "Please unlock it.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Please unlock it.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "email_questions/one definition behind both module paths",
+   "clean": "email_questions/one definition behind both module paths",
+   "state": {
+    "subject": "Subject line",
+    "body": "email_questions/one definition behind both module paths",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "laya.email.email_questions is not laya.presets.email_questions",
+   "clean": "laya.email.email_questions is not laya.presets.email_questions",
+   "state": {
+    "subject": "Subject line",
+    "body": "laya.email.email_questions is not laya.presets.email_questions",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "email_questions/the package export is that same object",
+   "clean": "email_questions/the package export is that same object",
+   "state": {
+    "subject": "Subject line",
+    "body": "email_questions/the package export is that same object",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "email_questions/both paths answer the same",
+   "clean": "email_questions/both paths answer the same",
+   "state": {
+    "subject": "Subject line",
+    "body": "email_questions/both paths answer the same",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "email_questions/a caller override reaches both paths",
+   "clean": "email_questions/a caller override reaches both paths",
+   "state": {
+    "subject": "Subject line",
+    "body": "email_questions/a caller override reaches both paths",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "If you have received this message in error,\nPlease delete it.",
+   "clean": "Please delete it.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Please delete it.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "my account is locked\nthis email is confidential and intended solely for the named addressee.\nplease unlock it.",
+   "clean": "please unlock it.",
+   "state": {
+    "subject": "Subject line",
+    "body": "please unlock it.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "body",
+   "clean": "body",
+   "state": {
+    "subject": "Subject line",
+    "body": "body",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "My account is locked.\n\nThis email and any files transmitted with it are\nconfidential and intended solely for the named addressee.",
+   "clean": "My account is locked.",
+   "state": {
+    "subject": "Subject line",
+    "body": "My account is locked.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Please reopen ticket 4411.\n\nIf you have received this message in error, delete it.",
+   "clean": "Please reopen ticket 4411.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Please reopen ticket 4411.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Thanks for the update.\nOn Mon, Sep 20, Bob wrote:\n> original text",
+   "clean": "Thanks for the update.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Thanks for the update.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi team,\nCan you confirm the refund?\nRegards,\nAlice",
+   "clean": "Hi team,\nCan you confirm the refund?",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi team,\nCan you confirm the refund?",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Segue o comprovante do pagamento.\n\n-----Mensagem original-----\nDe: Maria <maria@acme.com>\nAssunto: cancelar contrato\nQueremos cancelar o contrato.",
+   "clean": "Segue o comprovante do pagamento.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Segue o comprovante do pagamento.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Segue o comprovante.\n\nDe: Maria <maria@acme.com>\nEnviado: segunda-feira\nAssunto: cancelar contrato\nQueremos cancelar o contrato.",
+   "clean": "Segue o comprovante.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Segue o comprovante.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "O acesso voltou, obrigado.\n\nEm seg., 22 de set. de 2026 às 10:14, Suporte Técnico <\nsuporte@acme.com> escreveu:\n> texto antigo",
+   "clean": "O acesso voltou, obrigado.",
+   "state": {
+    "subject": "Subject line",
+    "body": "O acesso voltou, obrigado.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Bom dia,\nO boleto de março não chegou.\nObrigado,\nAna",
+   "clean": "Bom dia,\nO boleto de março não chegou.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Bom dia,\nO boleto de março não chegou.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hola,\nNo puedo acceder a mi cuenta desde ayer.\nSaludos,\nCarlos\n\nEl lun, 22 sept 2026 a las 10:14, Soporte <soporte@x.com> escribió:\n> texto anterior",
+   "clean": "Hola,\nNo puedo acceder a mi cuenta desde ayer.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hola,\nNo puedo acceder a mi cuenta desde ayer.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Necesito la factura de marzo.\n\nSi usted ha recibido este mensaje por error, bórrelo.",
+   "clean": "Necesito la factura de marzo.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Necesito la factura de marzo.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Favor reenviar a nota fiscal.\n\nCaso tenha recebido esta mensagem por engano, notifique o remetente.",
+   "clean": "Favor reenviar a nota fiscal.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Favor reenviar a nota fiscal.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Resolvido, pode fechar.\n\nEm qua., 24 de set. de 2026 às 09:02, Suporte\nTécnico <suporte@acme.com> escreveu:\n> texto antigo",
+   "clean": "Resolvido, pode fechar.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Resolvido, pode fechar.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Fixed, thanks.\n\nOn Wed, Sep 24, 2026 at 9:02 AM Support Team <\nsupport@acme.com> wrote:\n> old text",
+   "clean": "Fixed, thanks.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Fixed, thanks.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "the reported case",
+   "clean": "the reported case",
+   "state": {
+    "subject": "Subject line",
+    "body": "the reported case",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi team,\nFrom: my side the integration works, but please refund the duplicate charge today.\nThanks",
+   "clean": "Hi team,\nFrom: my side the integration works, but please refund the duplicate charge today.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi team,\nFrom: my side the integration works, but please refund the duplicate charge today.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "lowercase",
+   "clean": "lowercase",
+   "state": {
+    "subject": "Subject line",
+    "body": "lowercase",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nfrom: my side the integration works, but please refund the charge.\nThanks",
+   "clean": "Hi,\nfrom: my side the integration works, but please refund the charge.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nfrom: my side the integration works, but please refund the charge.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "uppercase",
+   "clean": "uppercase",
+   "state": {
+    "subject": "Subject line",
+    "body": "uppercase",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nFROM: my side the integration works, but please refund the charge.\nThanks",
+   "clean": "Hi,\nFROM: my side the integration works, but please refund the charge.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nFROM: my side the integration works, but please refund the charge.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "extra spacing",
+   "clean": "extra spacing",
+   "state": {
+    "subject": "Subject line",
+    "body": "extra spacing",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nFrom:   my side the integration works, but please refund the charge.\nThanks",
+   "clean": "Hi,\nFrom: my side the integration works, but please refund the charge.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nFrom: my side the integration works, but please refund the charge.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "mid-body",
+   "clean": "mid-body",
+   "state": {
+    "subject": "Subject line",
+    "body": "mid-body",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hello,\nFrom: what I can see the charge was taken twice, please refund it.\nRegards",
+   "clean": "Hello,\nFrom: what I can see the charge was taken twice, please refund it.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hello,\nFrom: what I can see the charge was taken twice, please refund it.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "address then Sent:",
+   "clean": "address then Sent:",
+   "state": {
+    "subject": "Subject line",
+    "body": "address then Sent:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nPlease look at this.\n\nFrom: Alice <alice@example.com>\nSent: Monday\nTo: Bob\nSubject: Refund\n\nPlease refund the duplicate charge to my card.",
+   "clean": "Hi,\nPlease look at this.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nPlease look at this.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "address only",
+   "clean": "address only",
+   "state": {
+    "subject": "Subject line",
+    "body": "address only",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nSee below.\n\nFrom: alice@example.com\nPlease refund the duplicate charge.",
+   "clean": "Hi,\nSee below.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nSee below.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "angle address",
+   "clean": "angle address",
+   "state": {
+    "subject": "Subject line",
+    "body": "angle address",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nSee below.\n\nFrom: <alice@example.com>\nPlease refund the duplicate charge.",
+   "clean": "Hi,\nSee below.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nSee below.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "name and address",
+   "clean": "name and address",
+   "state": {
+    "subject": "Subject line",
+    "body": "name and address",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nSee below.\n\nFrom: Alice Smith <alice@example.com>\nPlease refund the duplicate charge.",
+   "clean": "Hi,\nSee below.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nSee below.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nPlease refund the duplicate charge today.\n\nFrom: Alice <alice@example.com>\nSent: Monday\n\nOld thread: refund the first charge.",
+   "clean": "Hi,\nPlease refund the duplicate charge today.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nPlease refund the duplicate charge today.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "then Sent:",
+   "clean": "then Sent:",
+   "state": {
+    "subject": "Subject line",
+    "body": "then Sent:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nSee below.\n\nFrom: Alice Smith\nSent: Monday, 21 Sep 2026\n\nPlease refund.",
+   "clean": "Hi,\nSee below.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nSee below.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "then Date:",
+   "clean": "then Date:",
+   "state": {
+    "subject": "Subject line",
+    "body": "then Date:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nSee below.\n\nFrom: Alice Smith\nDate: 21/09/2026\n\nPlease refund.",
+   "clean": "Hi,\nSee below.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nSee below.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "one-word name, then Sent:",
+   "clean": "one-word name, then Sent:",
+   "state": {
+    "subject": "Subject line",
+    "body": "one-word name, then Sent:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nSee below.\n\nFrom: Alice\nSent: Monday\n\nPlease refund.",
+   "clean": "Hi,\nSee below.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nSee below.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nSee below.",
+   "clean": "Hi,\nSee below.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nSee below.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "From: Name then To:",
+   "clean": "From: Name then To:",
+   "state": {
+    "subject": "Subject line",
+    "body": "From: Name then To:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nSee below.\n\nFrom: Alice Smith\nTo: Bob\n\nPlease refund the charge.",
+   "clean": "Hi,\nSee below.\n\nFrom: Alice Smith\nTo: Bob\n\nPlease refund the charge.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nSee below.\n\nFrom: Alice Smith\nTo: Bob\n\nPlease refund the charge.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "From: Name alone",
+   "clean": "From: Name alone",
+   "state": {
+    "subject": "Subject line",
+    "body": "From: Name alone",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nSee below.\n\nFrom: Alice Smith\nPlease refund the charge.",
+   "clean": "Hi,\nSee below.\n\nFrom: Alice Smith\nPlease refund the charge.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nSee below.\n\nFrom: Alice Smith\nPlease refund the charge.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "galaxy",
+   "clean": "galaxy",
+   "state": {
+    "subject": "Subject line",
+    "body": "galaxy",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Enviado do meu Galaxy",
+   "clean": "Enviado do meu Galaxy",
+   "state": {
+    "subject": "Subject line",
+    "body": "Enviado do meu Galaxy",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "samsung default, 41 characters",
+   "clean": "samsung default, 41 characters",
+   "state": {
+    "subject": "Subject line",
+    "body": "samsung default, 41 characters",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Enviado do meu smartphone Samsung Galaxy.",
+   "clean": "Enviado do meu smartphone Samsung Galaxy.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Enviado do meu smartphone Samsung Galaxy.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "outlook ios",
+   "clean": "outlook ios",
+   "state": {
+    "subject": "Subject line",
+    "body": "outlook ios",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Enviado do Outlook para iOS",
+   "clean": "Enviado do Outlook para iOS",
+   "state": {
+    "subject": "Subject line",
+    "body": "Enviado do Outlook para iOS",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "outlook android download line",
+   "clean": "outlook android download line",
+   "state": {
+    "subject": "Subject line",
+    "body": "outlook android download line",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Obter o Outlook para Android",
+   "clean": "Obter o Outlook para Android",
+   "state": {
+    "subject": "Subject line",
+    "body": "Obter o Outlook para Android",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "windows mail",
+   "clean": "windows mail",
+   "state": {
+    "subject": "Subject line",
+    "body": "windows mail",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Enviado do Email para Windows",
+   "clean": "Enviado do Email para Windows",
+   "state": {
+    "subject": "Subject line",
+    "body": "Enviado do Email para Windows",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "yahoo",
+   "clean": "yahoo",
+   "state": {
+    "subject": "Subject line",
+    "body": "yahoo",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Enviado do Yahoo Mail no Android",
+   "clean": "Enviado do Yahoo Mail no Android",
+   "state": {
+    "subject": "Subject line",
+    "body": "Enviado do Yahoo Mail no Android",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "eco footer",
+   "clean": "eco footer",
+   "state": {
+    "subject": "Subject line",
+    "body": "eco footer",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Antes de imprimir, pense em sua responsabilidade e compromisso com o MEIO AMBIENTE.",
+   "clean": "",
+   "state": {
+    "subject": "Subject line",
+    "body": "",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "eco footer, reversed",
+   "clean": "eco footer, reversed",
+   "state": {
+    "subject": "Subject line",
+    "body": "eco footer, reversed",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Pense no meio ambiente antes de imprimir este e-mail.",
+   "clean": "",
+   "state": {
+    "subject": "Subject line",
+    "body": "",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Please resend the invoice.\n\nGet Outlook for iOS",
+   "clean": "Please resend the invoice.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Please resend the invoice.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "enviado",
+   "clean": "enviado",
+   "state": {
+    "subject": "Subject line",
+    "body": "enviado",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Enviado: sexta-feira, 19 de setembro de 2026 10:02",
+   "clean": "Enviado: sexta-feira, 19 de setembro de 2026 10:02",
+   "state": {
+    "subject": "Subject line",
+    "body": "Enviado: sexta-feira, 19 de setembro de 2026 10:02",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "data",
+   "clean": "data",
+   "state": {
+    "subject": "Subject line",
+    "body": "data",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Data: sexta-feira, 19 de setembro de 2026 10:02",
+   "clean": "Data: sexta-feira, 19 de setembro de 2026 10:02",
+   "state": {
+    "subject": "Subject line",
+    "body": "Data: sexta-feira, 19 de setembro de 2026 10:02",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "device words inside a request",
+   "clean": "device words inside a request",
+   "state": {
+    "subject": "Subject line",
+    "body": "device words inside a request",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Oi,\nSegue o pedido.\nEnviado do meu celular o comprovante ontem.",
+   "clean": "Oi,\nSegue o pedido.\nEnviado do meu celular o comprovante ontem.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Oi,\nSegue o pedido.\nEnviado do meu celular o comprovante ontem.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "`De:`/`Para:` date range",
+   "clean": "`De:`/`Para:` date range",
+   "state": {
+    "subject": "Subject line",
+    "body": "`De:`/`Para:` date range",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Preciso das férias.\nDe: 10/09\nPara: 15/09\nPode aprovar?",
+   "clean": "Preciso das férias.\nDe: 10/09\nPara: 15/09\nPode aprovar?",
+   "state": {
+    "subject": "Subject line",
+    "body": "Preciso das férias.\nDe: 10/09\nPara: 15/09\nPode aprovar?",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "`De:` + undated `Data:`",
+   "clean": "`De:` + undated `Data:`",
+   "state": {
+    "subject": "Subject line",
+    "body": "`De:` + undated `Data:`",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Relatório do evento.\nDe: João\nData: amanhã cedo\nPode confirmar?",
+   "clean": "Relatório do evento.\nDe: João\nData: amanhã cedo\nPode confirmar?",
+   "state": {
+    "subject": "Subject line",
+    "body": "Relatório do evento.\nDe: João\nData: amanhã cedo\nPode confirmar?",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "`antes de imprimir` in a request",
+   "clean": "`antes de imprimir` in a request",
+   "state": {
+    "subject": "Subject line",
+    "body": "`antes de imprimir` in a request",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Antes de imprimir o boleto, confira o valor. Está errado.",
+   "clean": "Antes de imprimir o boleto, confira o valor. Está errado.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Antes de imprimir o boleto, confira o valor. Está errado.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "`get` + device word",
+   "clean": "`get` + device word",
+   "state": {
+    "subject": "Subject line",
+    "body": "`get` + device word",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nThe box is at the front desk.\nGet mail",
+   "clean": "Hi,\nThe box is at the front desk.\nGet mail",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nThe box is at the front desk.\nGet mail",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "thanks comma",
+   "clean": "thanks comma",
+   "state": {
+    "subject": "Subject line",
+    "body": "thanks comma",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Thanks,\nAnna",
+   "clean": "Thanks,\nAnna",
+   "state": {
+    "subject": "Subject line",
+    "body": "Thanks,\nAnna",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "thanks bang",
+   "clean": "thanks bang",
+   "state": {
+    "subject": "Subject line",
+    "body": "thanks bang",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Thanks!",
+   "clean": "Thanks!",
+   "state": {
+    "subject": "Subject line",
+    "body": "Thanks!",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "best regards",
+   "clean": "best regards",
+   "state": {
+    "subject": "Subject line",
+    "body": "best regards",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Best regards,\nAnna",
+   "clean": "Best regards,\nAnna",
+   "state": {
+    "subject": "Subject line",
+    "body": "Best regards,\nAnna",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "kind regards",
+   "clean": "kind regards",
+   "state": {
+    "subject": "Subject line",
+    "body": "kind regards",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Kind regards",
+   "clean": "Kind regards",
+   "state": {
+    "subject": "Subject line",
+    "body": "Kind regards",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "cheers name",
+   "clean": "cheers name",
+   "state": {
+    "subject": "Subject line",
+    "body": "cheers name",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Cheers, Anna",
+   "clean": "Cheers, Anna",
+   "state": {
+    "subject": "Subject line",
+    "body": "Cheers, Anna",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "many thanks",
+   "clean": "many thanks",
+   "state": {
+    "subject": "Subject line",
+    "body": "many thanks",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Many thanks,\nAnna Meier",
+   "clean": "Many thanks,\nAnna Meier",
+   "state": {
+    "subject": "Subject line",
+    "body": "Many thanks,\nAnna Meier",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "thank you",
+   "clean": "thank you",
+   "state": {
+    "subject": "Subject line",
+    "body": "thank you",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Thank you,",
+   "clean": "Thank you,",
+   "state": {
+    "subject": "Subject line",
+    "body": "Thank you,",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "thanks in advance",
+   "clean": "thanks in advance",
+   "state": {
+    "subject": "Subject line",
+    "body": "thanks in advance",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Thanks in advance,",
+   "clean": "Thanks in advance,",
+   "state": {
+    "subject": "Subject line",
+    "body": "Thanks in advance,",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "sincerely",
+   "clean": "sincerely",
+   "state": {
+    "subject": "Subject line",
+    "body": "sincerely",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Sincerely,\nA. Meier",
+   "clean": "Sincerely,\nA. Meier",
+   "state": {
+    "subject": "Subject line",
+    "body": "Sincerely,\nA. Meier",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "sent from phone",
+   "clean": "sent from phone",
+   "state": {
+    "subject": "Subject line",
+    "body": "sent from phone",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Sent from my iPhone",
+   "clean": "Sent from my iPhone",
+   "state": {
+    "subject": "Subject line",
+    "body": "Sent from my iPhone",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "dash delimiter",
+   "clean": "dash delimiter",
+   "state": {
+    "subject": "Subject line",
+    "body": "dash delimiter",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "--\nAnna Meier\nSupport",
+   "clean": "--\nAnna Meier\nSupport",
+   "state": {
+    "subject": "Subject line",
+    "body": "--\nAnna Meier\nSupport",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "thanks and regards",
+   "clean": "thanks and regards",
+   "state": {
+    "subject": "Subject line",
+    "body": "thanks and regards",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Thanks and regards,\nAnna",
+   "clean": "Thanks and regards,\nAnna",
+   "state": {
+    "subject": "Subject line",
+    "body": "Thanks and regards,\nAnna",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "thanks & regards",
+   "clean": "thanks & regards",
+   "state": {
+    "subject": "Subject line",
+    "body": "thanks & regards",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Thanks & Regards,\nAnna",
+   "clean": "Thanks & Regards,\nAnna",
+   "state": {
+    "subject": "Subject line",
+    "body": "Thanks & Regards,\nAnna",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "warmest regards",
+   "clean": "warmest regards",
+   "state": {
+    "subject": "Subject line",
+    "body": "warmest regards",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Warmest regards,\nAnna",
+   "clean": "Warmest regards,\nAnna",
+   "state": {
+    "subject": "Subject line",
+    "body": "Warmest regards,\nAnna",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "warmest wishes",
+   "clean": "warmest wishes",
+   "state": {
+    "subject": "Subject line",
+    "body": "warmest wishes",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Warmest wishes,",
+   "clean": "Warmest wishes,",
+   "state": {
+    "subject": "Subject line",
+    "body": "Warmest wishes,",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "non-ascii name",
+   "clean": "non-ascii name",
+   "state": {
+    "subject": "Subject line",
+    "body": "non-ascii name",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Regards, Łukasz",
+   "clean": "Regards, Łukasz",
+   "state": {
+    "subject": "Subject line",
+    "body": "Regards, Łukasz",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "non-ascii name, accented",
+   "clean": "non-ascii name, accented",
+   "state": {
+    "subject": "Subject line",
+    "body": "non-ascii name, accented",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Thanks, José",
+   "clean": "Thanks, José",
+   "state": {
+    "subject": "Subject line",
+    "body": "Thanks, José",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "cyrillic name",
+   "clean": "cyrillic name",
+   "state": {
+    "subject": "Subject line",
+    "body": "cyrillic name",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Regards, Дмитрий",
+   "clean": "Regards, Дмитрий",
+   "state": {
+    "subject": "Subject line",
+    "body": "Regards, Дмитрий",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "and + sentence",
+   "clean": "and + sentence",
+   "state": {
+    "subject": "Subject line",
+    "body": "and + sentence",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\n\nPlease refund 4411.\nThanks and the team will confirm it today.",
+   "clean": "Hi,\n\nPlease refund 4411.\nThanks and the team will confirm it today.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\n\nPlease refund 4411.\nThanks and the team will confirm it today.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "warmest + sentence",
+   "clean": "warmest + sentence",
+   "state": {
+    "subject": "Subject line",
+    "body": "warmest + sentence",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\n\nThe room is cold.\nWarmest setting still reads 18 degrees.",
+   "clean": "Hi,\n\nThe room is cold.\nWarmest setting still reads 18 degrees.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\n\nThe room is cold.\nWarmest setting still reads 18 degrees.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "a question about the word",
+   "clean": "a question about the word",
+   "state": {
+    "subject": "Subject line",
+    "body": "a question about the word",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "a policy question",
+   "clean": "a policy question",
+   "state": {
+    "subject": "Subject line",
+    "body": "a policy question",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "What is your confidentiality policy?",
+   "clean": "What is your confidentiality policy?",
+   "state": {
+    "subject": "Subject line",
+    "body": "What is your confidentiality policy?",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "a request containing the word",
+   "clean": "a request containing the word",
+   "state": {
+    "subject": "Subject line",
+    "body": "a request containing the word",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Please keep this confidential but process my refund.",
+   "clean": "Please keep this confidential but process my refund.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Please keep this confidential but process my refund.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "a request about handling",
+   "clean": "a request about handling",
+   "state": {
+    "subject": "Subject line",
+    "body": "a request about handling",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Please treat this as confidential.",
+   "clean": "Please treat this as confidential.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Please treat this as confidential.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "a question with a dash",
+   "clean": "a question with a dash",
+   "state": {
+    "subject": "Subject line",
+    "body": "a question with a dash",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "This is confidential - can you help?",
+   "clean": "This is confidential - can you help?",
+   "state": {
+    "subject": "Subject line",
+    "body": "This is confidential - can you help?",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "a question about an attachment",
+   "clean": "a question about an attachment",
+   "state": {
+    "subject": "Subject line",
+    "body": "a question about an attachment",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Is the attached document confidential?",
+   "clean": "Is the attached document confidential?",
+   "state": {
+    "subject": "Subject line",
+    "body": "Is the attached document confidential?",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "a label prefix",
+   "clean": "a label prefix",
+   "state": {
+    "subject": "Subject line",
+    "body": "a label prefix",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Confidential: I need a refund.",
+   "clean": "Confidential: I need a refund.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Confidential: I need a refund.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "a question about information",
+   "clean": "a question about information",
+   "state": {
+    "subject": "Subject line",
+    "body": "a question about information",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "What is the information policy for contractors?",
+   "clean": "What is the information policy for contractors?",
+   "state": {
+    "subject": "Subject line",
+    "body": "What is the information policy for contractors?",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "named addressee",
+   "clean": "named addressee",
+   "state": {
+    "subject": "Subject line",
+    "body": "named addressee",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "the individual addressed",
+   "clean": "the individual addressed",
+   "state": {
+    "subject": "Subject line",
+    "body": "the individual addressed",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "This message is confidential and intended solely for the use of the individual to whom it is addressed.",
+   "clean": "",
+   "state": {
+    "subject": "Subject line",
+    "body": "",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "may be privileged",
+   "clean": "may be privileged",
+   "state": {
+    "subject": "Subject line",
+    "body": "may be privileged",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "The information in this email is confidential and may be privileged.",
+   "clean": "",
+   "state": {
+    "subject": "Subject line",
+    "body": "",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "wrapped across lines",
+   "clean": "wrapped across lines",
+   "state": {
+    "subject": "Subject line",
+    "body": "wrapped across lines",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "This email and any files transmitted with it are\nconfidential and intended solely for the named addressee.",
+   "clean": "",
+   "state": {
+    "subject": "Subject line",
+    "body": "",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "My account is locked.\nThis email is confidential and intended solely for the named addressee.\nPlease unlock it.",
+   "clean": "My account is locked. Please unlock it.",
+   "state": {
+    "subject": "Subject line",
+    "body": "My account is locked. Please unlock it.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Please unlock it. This email is confidential and intended solely for the named addressee.",
+   "clean": "Please unlock it.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Please unlock it.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "criteria",
+   "clean": "criteria",
+   "state": {
+    "subject": "Subject line",
+    "body": "criteria",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "\n%d passed, %d failed",
+   "clean": "%d passed, %d failed",
+   "state": {
+    "subject": "Subject line",
+    "body": "%d passed, %d failed",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "My account is locked.\n%s\nPlease unlock it.",
+   "clean": "My account is locked.\n%s\nPlease unlock it.",
+   "state": {
+    "subject": "Subject line",
+    "body": "My account is locked.\n%s\nPlease unlock it.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "My account is locked\n%s\nPlease unlock it.",
+   "clean": "My account is locked\n%s\nPlease unlock it.",
+   "state": {
+    "subject": "Subject line",
+    "body": "My account is locked\n%s\nPlease unlock it.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Please unlock my account\n%s",
+   "clean": "Please unlock my account\n%s",
+   "state": {
+    "subject": "Subject line",
+    "body": "Please unlock my account\n%s",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "RMA 5521 is still pending\n%s\nPlease advise.",
+   "clean": "RMA 5521 is still pending\n%s\nPlease advise.",
+   "state": {
+    "subject": "Subject line",
+    "body": "RMA 5521 is still pending\n%s\nPlease advise.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "My account is locked. %s",
+   "clean": "My account is locked. %s",
+   "state": {
+    "subject": "Subject line",
+    "body": "My account is locked. %s",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Locked out",
+   "clean": "Locked out",
+   "state": {
+    "subject": "Subject line",
+    "body": "Locked out",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "My account is locked.\n\n%s",
+   "clean": "My account is locked.\n\n%s",
+   "state": {
+    "subject": "Subject line",
+    "body": "My account is locked.\n\n%s",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "en/`From:` prose keeps the request: ",
+   "clean": "en/`From:` prose keeps the request:",
+   "state": {
+    "subject": "Subject line",
+    "body": "en/`From:` prose keeps the request:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "refund",
+   "clean": "refund",
+   "state": {
+    "subject": "Subject line",
+    "body": "refund",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "en/quoted block still cut: ",
+   "clean": "en/quoted block still cut:",
+   "state": {
+    "subject": "Subject line",
+    "body": "en/quoted block still cut:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi,\nPlease look at this.",
+   "clean": "Hi,\nPlease look at this.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi,\nPlease look at this.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "en/bare `From:` header still cut: ",
+   "clean": "en/bare `From:` header still cut:",
+   "state": {
+    "subject": "Subject line",
+    "body": "en/bare `From:` header still cut:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "en/bare `From:` with no header neighbour is kept: ",
+   "clean": "en/bare `From:` with no header neighbour is kept:",
+   "state": {
+    "subject": "Subject line",
+    "body": "en/bare `From:` with no header neighbour is kept:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/footer removed: ",
+   "clean": "pt/footer removed:",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/footer removed:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/outlook header without address is cut: ",
+   "clean": "pt/outlook header without address is cut:",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/outlook header without address is cut:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "pt/kept: ",
+   "clean": "pt/kept:",
+   "state": {
+    "subject": "Subject line",
+    "body": "pt/kept:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Duplicate charge",
+   "clean": "Duplicate charge",
+   "state": {
+    "subject": "Subject line",
+    "body": "Duplicate charge",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "signoff cut/",
+   "clean": "signoff cut/",
+   "state": {
+    "subject": "Subject line",
+    "body": "signoff cut/",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "signoff kept/",
+   "clean": "signoff kept/",
+   "state": {
+    "subject": "Subject line",
+    "body": "signoff kept/",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "word only/kept: ",
+   "clean": "word only/kept:",
+   "state": {
+    "subject": "Subject line",
+    "body": "word only/kept:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Question",
+   "clean": "Question",
+   "state": {
+    "subject": "Subject line",
+    "body": "Question",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "word only/still dropped: ",
+   "clean": "word only/still dropped:",
+   "state": {
+    "subject": "Subject line",
+    "body": "word only/still dropped:",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "category",
+   "clean": "category",
+   "state": {
+    "subject": "Subject line",
+    "body": "category",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "  FAIL ",
+   "clean": "FAIL",
+   "state": {
+    "subject": "Subject line",
+    "body": "FAIL",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "%s:\n     got  %r\n     want %r",
+   "clean": "%s:\n got %r\n want %r",
+   "state": {
+    "subject": "Subject line",
+    "body": "%s:\n got %r\n want %r",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "%s %s",
+   "clean": "%s %s",
+   "state": {
+    "subject": "Subject line",
+    "body": "%s %s",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Segue o comprovante.\n\nDe: Maria Souza\n%s\nPara: Suporte\nAssunto: cancelar contrato\n\nQueremos cancelar o contrato.",
+   "clean": "Segue o comprovante.\n\nDe: Maria Souza\n%s\nPara: Suporte\nAssunto: cancelar contrato\n\nQueremos cancelar o contrato.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Segue o comprovante.\n\nDe: Maria Souza\n%s\nPara: Suporte\nAssunto: cancelar contrato\n\nQueremos cancelar o contrato.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "%s\n\n%s",
+   "clean": "%s\n\n%s",
+   "state": {
+    "subject": "Subject line",
+    "body": "%s\n\n%s",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "\n\n",
+   "clean": "",
+   "state": {
+    "subject": "Subject line",
+    "body": "",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "legal",
+   "clean": "legal",
+   "state": {
+    "subject": "Subject line",
+    "body": "legal",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "contracts",
+   "clean": "contracts",
+   "state": {
+    "subject": "Subject line",
+    "body": "contracts",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Hi team,\n\nPlease refund invoice 4411.\n\nThanks,\nAna\n\nSent from my iPhone",
+   "clean": "Hi team,\n\nPlease refund invoice 4411.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Hi team,\n\nPlease refund invoice 4411.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "Olá,\n\nPreciso de ajuda.\n\nEm seg., 3 de jun. de 2024 às 10:00, Suporte <s@x.com> escreveu:\n> antiga mensagem",
+   "clean": "Olá,\n\nPreciso de ajuda.",
+   "state": {
+    "subject": "Subject line",
+    "body": "Olá,\n\nPreciso de ajuda.",
+    "from": "a@b.com"
+   }
+  },
+  {
+   "body": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "clean": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "state": {
+    "subject": "Subject line",
+    "body": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "from": "a@b.com"
+   }
+  }
+ ],
+ "raw_state": {
+  "subject": "S",
+  "body": "  body  ",
+  "priority": "high"
+ }
+}

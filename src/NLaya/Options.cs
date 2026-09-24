@@ -29,9 +29,6 @@ public sealed class LayaOptions
     /// <summary>When false, a failing hook logs a warning and inference continues.</summary>
     public bool HooksRaise { get; set; } = true;
 
-    /// <summary>When false, hooks are serialised with a lock.</summary>
-    public bool HooksConcurrent { get; set; } = true;
-
     public ILogger? Logger { get; set; }
 
     public IProgress<(string File, long Done, long? Total)>? DownloadProgress { get; set; }

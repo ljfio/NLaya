@@ -16,4 +16,9 @@
     <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
     <PackageReference Include="System.Numerics.Tensors" Version="9.0.9" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Lang/lang_data.json" LogicalName="NLaya.Lang.lang_data.json" />
+    <EmbeddedResource Include="Email/email_data.json" LogicalName="NLaya.Email.email_data.json" />
+    <EmbeddedResource Include="Presets/presets.json" LogicalName="NLaya.Presets.presets.json" />
+  </ItemGroup>
 </Project>

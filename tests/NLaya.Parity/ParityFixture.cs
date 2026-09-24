@@ -12,26 +12,32 @@ namespace NLaya.Parity;
 public sealed class ParityFixture : IDisposable
 {
     public static bool Enabled => Environment.GetEnvironmentVariable("NLAYA_PARITY") is "1" or "true";
-    public static string? OnnxDir => Environment.GetEnvironmentVariable("NLAYA_ONNX_DIR") is { Length: > 0 } d ? d : null;
+    /// <summary>A directory holding one export_onnx.py output per checkpoint: multilingual/, english/, typed_decisions/.</summary>
+    public static string? OnnxRoot => Environment.GetEnvironmentVariable("NLAYA_ONNX_ROOT") is { Length: > 0 } d ? d : null;
 
-    private readonly Lazy<LayaAgent> _torch = new(() =>
-        Laya.Load(Laya.MultilingualModel, o => o.UseTorchSharp("cpu")));
+    /// <summary>Fixture name -> (repo, subfolder), as make_fixtures.py generated them.</summary>
+    public static readonly string[] Models = ["multilingual", "english", "typed_decisions"];
 
-    private readonly Lazy<LayaAgent?> _onnx = new(() => OnnxDir is { } dir
-        ? Laya.Load(dir, o => o.UseOnnx(dir))
-        : null);
+    private readonly Dictionary<string, LayaAgent> _agents = new();
 
-    public LayaAgent Agent(string backend)
+    public LayaAgent Agent(string backend, string model)
     {
         if (!Enabled) Assert.Skip("set NLAYA_PARITY=1 to run model parity tests");
-        if (backend == "torchsharp") return _torch.Value;
-        return _onnx.Value ?? throw SkipOnnx();
-    }
-
-    private static Exception SkipOnnx()
-    {
-        Assert.Skip("set NLAYA_ONNX_DIR to an export_onnx.py output directory to run ONNX parity tests");
-        return new InvalidOperationException();
+        var onnxDir = OnnxRoot is null ? null : Path.Combine(OnnxRoot, model);
+        if (backend == "onnx" && (onnxDir is null || !File.Exists(Path.Combine(onnxDir, "encoder.onnx"))))
+            Assert.Skip($"set NLAYA_ONNX_ROOT to a directory with an export_onnx.py output in {model}/ to run ONNX parity tests");
+        lock (_agents)
+        {
+            var key = backend + ":" + model;
+            if (_agents.TryGetValue(key, out var agent)) return agent;
+            var f = Fixture($"model_{model}.json");
+            var repo = f["repo"]!.GetValue<string>();
+            var sub = f["subfolder"]?.GetValue<string>();
+            agent = backend == "onnx"
+                ? Laya.Load(onnxDir!, o => o.UseOnnx(onnxDir!))
+                : Laya.Load(repo, o => { o.Subfolder = sub; o.UseTorchSharp("cpu"); });
+            return _agents[key] = agent;
+        }
     }
 
     public static JsonNode Fixture(string name) =>
@@ -47,7 +53,6 @@ public sealed class ParityFixture : IDisposable
 
     public void Dispose()
     {
-        if (_torch.IsValueCreated) _torch.Value.Dispose();
-        if (_onnx.IsValueCreated) _onnx.Value?.Dispose();
+        foreach (var a in _agents.Values) a.Dispose();
     }
 }

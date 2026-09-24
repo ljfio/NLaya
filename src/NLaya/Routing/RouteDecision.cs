@@ -1,4 +1,23 @@
+using System.Text.Json.Nodes;
+using NLaya.Lang;
+
 namespace NLaya.Routing;
 
-/// <summary>Which checkpoint a request goes to, and why.</summary>
-public sealed record RouteDecision(string Model, string Reason, string? Lang = null, string? Script = null);
+/// <summary>Which checkpoint a request goes to, why, and what detection saw (Python <c>RouteDecision</c>).</summary>
+public sealed record RouteDecision(string Model, string Repo, string Reason, LanguageDetection? Detection = null, string? Workflow = null)
+{
+    public JsonObject ToJson() => new()
+    {
+        ["model"] = Model,
+        ["repo"] = Repo,
+        ["reason"] = Reason,
+        ["detection"] = Detection?.ToJson(),
+        ["workflow"] = Workflow,
+    };
+}
+
+/// <summary>A checkpoint location: a Hub repo (or local path) and an optional subfolder.</summary>
+public sealed record CheckpointSpec(string Repo, string? Subfolder = null)
+{
+    public override string ToString() => Subfolder is null ? Repo : $"{Repo}/{Subfolder}";
+}

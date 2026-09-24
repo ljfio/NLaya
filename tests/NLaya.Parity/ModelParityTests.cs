@@ -8,31 +8,36 @@ public class ModelParityTests(ParityFixture fx) : IClassFixture<ParityFixture>
     private const double LogitTol = 2e-3;
     private const double ProbTol = 1e-3;
 
-    public static TheoryData<string, int> Batches()
+    public static TheoryData<string, string, int> Cases(string section)
     {
-        var data = new TheoryData<string, int>();
-        var n = ParityFixture.Fixture("model_multilingual.json")["batches"]!.AsArray().Count;
-        foreach (var backend in new[] { "torchsharp", "onnx" })
-            for (var i = 0; i < n; i++) data.Add(backend, i);
+        var data = new TheoryData<string, string, int>();
+        foreach (var model in ParityFixture.Models)
+        {
+            var n = ParityFixture.Fixture($"model_{model}.json")[section]!.AsArray().Count;
+            foreach (var backend in new[] { "torchsharp", "onnx" })
+                for (var i = 0; i < n; i++) data.Add(backend, model, i);
+        }
         return data;
     }
 
-    public static TheoryData<string, int> Predicts()
+    public static TheoryData<string, string, int> Batches() => Cases("batches");
+    public static TheoryData<string, string, int> Predicts() => Cases("predicts");
+
+    public static TheoryData<string, string> BackendModels()
     {
-        var data = new TheoryData<string, int>();
-        var n = ParityFixture.Fixture("model_multilingual.json")["predicts"]!.AsArray().Count;
-        foreach (var backend in new[] { "torchsharp", "onnx" })
-            for (var i = 0; i < n; i++) data.Add(backend, i);
+        var data = new TheoryData<string, string>();
+        foreach (var model in ParityFixture.Models)
+            foreach (var backend in new[] { "torchsharp", "onnx" }) data.Add(backend, model);
         return data;
     }
 
     [Theory]
     [MemberData(nameof(Batches))]
-    public void Encoder_hidden_states_match(string backend, int i)
+    public void Encoder_hidden_states_match(string backend, string model, int i)
     {
         if (backend != "torchsharp") Assert.Skip("hidden states are only exposed by the TorchSharp backend");
-        var b = ParityFixture.Fixture("model_multilingual.json")["batches"]![i]!;
-        var agent = fx.Agent(backend);
+        var b = ParityFixture.Fixture($"model_{model}.json")["batches"]![i]!;
+        var agent = fx.Agent(backend, model);
         var batch = ParityFixture.Batch(b);
         var hidden = ((TorchSharpBackend)agent.Backend).EncodeHidden(batch);
         var d = agent.EncoderConfig!.HiddenSize;
@@ -48,10 +53,10 @@ public class ModelParityTests(ParityFixture fx) : IClassFixture<ParityFixture>
 
     [Theory]
     [MemberData(nameof(Batches))]
-    public void Logits_and_act_match(string backend, int i)
+    public void Logits_and_act_match(string backend, string model, int i)
     {
-        var b = ParityFixture.Fixture("model_multilingual.json")["batches"]![i]!;
-        var agent = fx.Agent(backend);
+        var b = ParityFixture.Fixture($"model_{model}.json")["batches"]![i]!;
+        var agent = fx.Agent(backend, model);
         var batch = ParityFixture.Batch(b);
         var output = agent.Backend.Run(batch);
 
@@ -70,21 +75,20 @@ public class ModelParityTests(ParityFixture fx) : IClassFixture<ParityFixture>
 
     [Theory]
     [MemberData(nameof(Predicts))]
-    public void Predict_matches_python(string backend, int i)
+    public void Predict_matches_python(string backend, string model, int i)
     {
-        var c = ParityFixture.Fixture("model_multilingual.json")["predicts"]![i]!;
-        var agent = fx.Agent(backend);
+        var c = ParityFixture.Fixture($"model_{model}.json")["predicts"]![i]!;
+        var agent = fx.Agent(backend, model);
         var result = agent.Predict(LayaState.FromJson(c["state"]?.DeepClone()), Questions.FromJson(c["questions"]));
         AssertResult(c["result"]!, result.ToJson());
     }
 
     [Theory]
-    [InlineData("torchsharp")]
-    [InlineData("onnx")]
-    public void PredictBatch_matches_python(string backend)
+    [MemberData(nameof(BackendModels))]
+    public void PredictBatch_matches_python(string backend, string model)
     {
-        var c = ParityFixture.Fixture("model_multilingual.json")["predict_batch"]!;
-        var agent = fx.Agent(backend);
+        var c = ParityFixture.Fixture($"model_{model}.json")["predict_batch"]!;
+        var agent = fx.Agent(backend, model);
         var states = c["states"]!.AsArray().Select(s => LayaState.FromJson(s?.DeepClone())).ToList();
         var results = agent.PredictBatch(states, Questions.FromJson(c["questions"]));
         var expected = c["results"]!.AsArray();

@@ -36,6 +36,11 @@ public sealed class LayaResult
     public OrderedMap<Answer> Answers { get; }
     public Usage Usage { get; }
 
+    /// <summary>Set by <see cref="Routing.Router"/>: which checkpoint answered, and why.</summary>
+    public Routing.RouteDecision? Routing { get; private init; }
+
+    internal LayaResult WithRouting(Routing.RouteDecision decision) => Routing is not null ? this : new(Model, Answers, Usage) { Routing = decision };
+
     public Answer this[string questionId] => Answers[questionId];
 
     /// <summary>The answer to <paramref name="questionId"/> as a specific type.</summary>
@@ -50,7 +55,9 @@ public sealed class LayaResult
     {
         var answers = new JsonObject();
         foreach (var (k, a) in Answers) answers[k] = a.ToJson();
-        return new JsonObject { ["model"] = Model, ["answers"] = answers, ["usage"] = Usage.ToJson() };
+        var o = new JsonObject { ["model"] = Model, ["answers"] = answers, ["usage"] = Usage.ToJson() };
+        if (Routing is not null) o["routing"] = Routing.ToJson();
+        return o;
     }
 
     public string ToJsonString(bool indented = false) =>
