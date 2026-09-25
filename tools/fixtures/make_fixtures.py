@@ -9,9 +9,10 @@ Writes tests/NLaya.Tests/Fixtures/*.json:
   sequences.json                                         build_sequence ids + markers
   model_{multilingual,english,typed_decisions}.json      batch tensors -> logits / act_logits, predict outputs
   lang.json / email.json                                 laya.lang.analyse, Router routing, email cleaning
+  router_batch.json                                      Router.route_batch / predict_batch grouping (fake agents)
   src/NLaya/Presets/presets.json                         laya.presets, embedded in the library
 
-Pass --only lang,email,presets,tokenizers,sequences,models to regenerate a subset.
+Pass --only lang,email,router_batch,presets,tokenizers,sequences,models to regenerate a subset.
 """
 import ast
 import glob
@@ -120,6 +121,8 @@ def main():
         lang_fixture(dump, tests_dir)
     if want("email"):
         email_fixture(dump, tests_dir)
+    if want("router_batch"):
+        router_batch_fixture(dump)
 
     # ---- tokenizers
     for name, repo, sub in (("multilingual", REPO, None), ("english", "convaiinnovations/laya", None)):
@@ -257,6 +260,55 @@ def lang_fixture(dump, tests_dir):
     dump("lang.json", {"cases": cases, "explicit": explicit,
                        "workflow": {"questions": list(wf["customer_service"]), "model": auto["model"], "reason": auto["reason"],
                                     "workflow": match_typed_decisions_workflow(wf["customer_service"])}})
+
+
+def router_batch_fixture(dump):
+    """Router.route_batch decisions and Router.predict_batch grouping, with fake agents attached (no model)."""
+    from laya.router import Router
+
+    q_a = {"intent": {"type": "choice", "instructions": "What does the sender want?",
+                      "criteria": {"refund": "money back", "help": "support"}},
+           "urgent": {"type": "noul", "instructions": "Is it urgent?"}}
+    q_b = {"urgent": {"type": "noul", "instructions": "Is it urgent?"}}
+    q_a_reordered = {"urgent": q_a["urgent"], "intent": q_a["intent"]}  # same questions, other order: own group
+    requests = [
+        {"state": "I was charged twice, please refund me", "questions": q_a},
+        {"state": "二重に請求されました", "questions": q_a},
+        {"state": "Please help, the app crashes on login", "questions": q_b},
+        {"state": "Mein Konto wurde zweimal belastet – bitte erstatten Sie den Betrag.", "questions": q_a},
+        {"state": "Refund the duplicate charge", "questions": q_a, "model": "multilingual"},
+        {"state": "Hola, necesito ayuda", "questions": q_a, "lang": "es"},
+        {"state": "Where is my order?", "questions": q_a_reordered},
+        {"state": {"body": "I need a copy of my invoice"}, "questions": q_a, "lang_guess": "fr"},
+        {"state": "hello", "questions": q_a, "lang": "de"},
+        {"state": "Ich möchte mein Abo kündigen, bitte bestätigen", "questions": q_a},
+        {"state": "Where is my order?", "questions": q_a},
+    ]
+    calls = []
+
+    class FakeAgent:
+        def __init__(self, name, lang_temperatures=None):
+            self.name = name
+            self.lang_temperatures = lang_temperatures or {}
+
+        def predict_batch(self, states, questions, batch_size=None, **kwargs):
+            calls.append({"model": self.name, "states": list(states), "questions": list(questions),
+                          "lang": kwargs.get("lang"), "batch_size": batch_size})
+            return [{"model": "laya-rl-agent", "answers": {}, "usage": {"input_tokens": 1, "output_tokens": 0}}
+                    for _ in states]
+
+    router = Router()
+    router.attach("english", FakeAgent("english"))
+    # Only an agent with language temperatures splits its groups by language.
+    router.attach("multilingual", FakeAgent("multilingual", {"de": {"temperature": [1.0, 1.0, 1.0]}}))
+    decisions = router.route_batch(requests)
+    results = router.predict_batch(requests, batch_size=4)
+    dump("router_batch.json", {
+        "requests": requests,
+        "decisions": [{"model": d["model"], "reason": d["reason"]} for d in decisions],
+        "calls": calls,
+        "result_models": [r["routing"]["model"] for r in results],
+    })
 
 
 def email_fixture(dump, tests_dir):
