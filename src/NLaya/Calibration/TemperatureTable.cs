@@ -45,6 +45,9 @@ public sealed class TemperatureTable
         }
     }
 
+    /// <summary>True when some language has its own temperatures, so the request language changes answers.</summary>
+    internal bool HasLanguageOverrides => _lang.Count > 0;
+
     /// <summary>The temperature to divide a question's logits by.</summary>
     public double For(QuestionType type, int optionCount, string? lang = null)
     {

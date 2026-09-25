@@ -1,0 +1,328 @@
+{
+ "requests": [
+  {
+   "state": "I was charged twice, please refund me",
+   "questions": {
+    "intent": {
+     "type": "choice",
+     "instructions": "What does the sender want?",
+     "criteria": {
+      "refund": "money back",
+      "help": "support"
+     }
+    },
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is it urgent?"
+    }
+   }
+  },
+  {
+   "state": "二重に請求されました",
+   "questions": {
+    "intent": {
+     "type": "choice",
+     "instructions": "What does the sender want?",
+     "criteria": {
+      "refund": "money back",
+      "help": "support"
+     }
+    },
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is it urgent?"
+    }
+   }
+  },
+  {
+   "state": "Please help, the app crashes on login",
+   "questions": {
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is it urgent?"
+    }
+   }
+  },
+  {
+   "state": "Mein Konto wurde zweimal belastet – bitte erstatten Sie den Betrag.",
+   "questions": {
+    "intent": {
+     "type": "choice",
+     "instructions": "What does the sender want?",
+     "criteria": {
+      "refund": "money back",
+      "help": "support"
+     }
+    },
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is it urgent?"
+    }
+   }
+  },
+  {
+   "state": "Refund the duplicate charge",
+   "questions": {
+    "intent": {
+     "type": "choice",
+     "instructions": "What does the sender want?",
+     "criteria": {
+      "refund": "money back",
+      "help": "support"
+     }
+    },
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is it urgent?"
+    }
+   },
+   "model": "multilingual"
+  },
+  {
+   "state": "Hola, necesito ayuda",
+   "questions": {
+    "intent": {
+     "type": "choice",
+     "instructions": "What does the sender want?",
+     "criteria": {
+      "refund": "money back",
+      "help": "support"
+     }
+    },
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is it urgent?"
+    }
+   },
+   "lang": "es"
+  },
+  {
+   "state": "Where is my order?",
+   "questions": {
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is it urgent?"
+    },
+    "intent": {
+     "type": "choice",
+     "instructions": "What does the sender want?",
+     "criteria": {
+      "refund": "money back",
+      "help": "support"
+     }
+    }
+   }
+  },
+  {
+   "state": {
+    "body": "I need a copy of my invoice"
+   },
+   "questions": {
+    "intent": {
+     "type": "choice",
+     "instructions": "What does the sender want?",
+     "criteria": {
+      "refund": "money back",
+      "help": "support"
+     }
+    },
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is it urgent?"
+    }
+   },
+   "lang_guess": "fr"
+  },
+  {
+   "state": "hello",
+   "questions": {
+    "intent": {
+     "type": "choice",
+     "instructions": "What does the sender want?",
+     "criteria": {
+      "refund": "money back",
+      "help": "support"
+     }
+    },
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is it urgent?"
+    }
+   },
+   "lang": "de"
+  },
+  {
+   "state": "Ich möchte mein Abo kündigen, bitte bestätigen",
+   "questions": {
+    "intent": {
+     "type": "choice",
+     "instructions": "What does the sender want?",
+     "criteria": {
+      "refund": "money back",
+      "help": "support"
+     }
+    },
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is it urgent?"
+    }
+   }
+  },
+  {
+   "state": "Where is my order?",
+   "questions": {
+    "intent": {
+     "type": "choice",
+     "instructions": "What does the sender want?",
+     "criteria": {
+      "refund": "money back",
+      "help": "support"
+     }
+    },
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is it urgent?"
+    }
+   }
+  }
+ ],
+ "decisions": [
+  {
+   "model": "english",
+   "reason": "English Latin text"
+  },
+  {
+   "model": "multilingual",
+   "reason": "non-Latin script (kana, 100% of letters); the English checkpoint cannot read it"
+  },
+  {
+   "model": "english",
+   "reason": "English Latin text"
+  },
+  {
+   "model": "multilingual",
+   "reason": "Latin script but language looks like 'de', not English"
+  },
+  {
+   "model": "multilingual",
+   "reason": "explicit model='multilingual'"
+  },
+  {
+   "model": "multilingual",
+   "reason": "explicit lang='es'"
+  },
+  {
+   "model": "english",
+   "reason": "English Latin text"
+  },
+  {
+   "model": "multilingual",
+   "reason": "lang_guess: the caller identified this as non-English text"
+  },
+  {
+   "model": "multilingual",
+   "reason": "explicit lang='de'"
+  },
+  {
+   "model": "multilingual",
+   "reason": "Latin script but language looks like 'de', not English"
+  },
+  {
+   "model": "english",
+   "reason": "English Latin text"
+  }
+ ],
+ "calls": [
+  {
+   "model": "english",
+   "states": [
+    "I was charged twice, please refund me",
+    "Where is my order?"
+   ],
+   "questions": [
+    "intent",
+    "urgent"
+   ],
+   "lang": null,
+   "batch_size": 4
+  },
+  {
+   "model": "english",
+   "states": [
+    "Please help, the app crashes on login"
+   ],
+   "questions": [
+    "urgent"
+   ],
+   "lang": null,
+   "batch_size": 4
+  },
+  {
+   "model": "english",
+   "states": [
+    "Where is my order?"
+   ],
+   "questions": [
+    "urgent",
+    "intent"
+   ],
+   "lang": null,
+   "batch_size": 4
+  },
+  {
+   "model": "multilingual",
+   "states": [
+    "二重に請求されました",
+    "Refund the duplicate charge",
+    {
+     "body": "I need a copy of my invoice"
+    }
+   ],
+   "questions": [
+    "intent",
+    "urgent"
+   ],
+   "lang": null,
+   "batch_size": 4
+  },
+  {
+   "model": "multilingual",
+   "states": [
+    "Mein Konto wurde zweimal belastet – bitte erstatten Sie den Betrag.",
+    "hello",
+    "Ich möchte mein Abo kündigen, bitte bestätigen"
+   ],
+   "questions": [
+    "intent",
+    "urgent"
+   ],
+   "lang": "de",
+   "batch_size": 4
+  },
+  {
+   "model": "multilingual",
+   "states": [
+    "Hola, necesito ayuda"
+   ],
+   "questions": [
+    "intent",
+    "urgent"
+   ],
+   "lang": "es",
+   "batch_size": 4
+  }
+ ],
+ "result_models": [
+  "english",
+  "multilingual",
+  "english",
+  "multilingual",
+  "multilingual",
+  "multilingual",
+  "english",
+  "multilingual",
+  "multilingual",
+  "multilingual",
+  "english"
+ ]
+}

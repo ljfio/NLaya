@@ -88,7 +88,7 @@ public class ModelParityTests(ParityFixture fx)
 
     [Theory]
     [MemberData(nameof(BackendModels))]
-    public void PredictBatch_matches_python(string backend, string model)
+    public async Task PredictBatch_matches_python(string backend, string model)
     {
         var c = ParityFixture.Fixture($"model_{model}.json")["predict_batch"]!;
         var agent = fx.Agent(backend, model);
@@ -100,6 +100,11 @@ public class ModelParityTests(ParityFixture fx)
 
         var sorted = agent.PredictBatch(states, Questions.FromJson(c["questions"]), new BatchOptions { BatchSize = 2, SortByLength = true });
         for (var j = 0; j < results.Count; j++) AssertResult(expected[j]!, sorted[j].ToJson());
+
+        var ct = TestContext.Current.CancellationToken;
+        var streamed = await agent.PredictStreamAsync(states, Questions.FromJson(c["questions"]), new BatchOptions { BatchSize = 2 }, ct).ToListAsync(ct);
+        Assert.Equal(expected.Count, streamed.Count);
+        for (var j = 0; j < streamed.Count; j++) AssertResult(expected[j]!, streamed[j].ToJson());
     }
 
     /// <summary>Same keys and strings; numbers within <see cref="ProbTol"/>.</summary>

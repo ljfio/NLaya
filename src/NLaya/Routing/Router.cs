@@ -1,4 +1,9 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
+
+using Microsoft.Extensions.Logging;
+
 using NLaya.Lang;
 
 namespace NLaya.Routing;
@@ -303,6 +308,216 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
 
     public Task<LayaResult> PredictAsync(LayaState state, Questions questions, RouteOptions? options = null, CancellationToken ct = default) =>
         System.Threading.Tasks.Task.Run(() => Predict(state, questions, options), ct);
+
+    // ---------------------------------------------------------------- batch
+
+    /// <summary>
+    /// Route a heterogeneous batch without loading anything (Python <c>route_batch</c>), so a caller
+    /// can inspect or aggregate the decisions first. Decisions keep input order.
+    /// </summary>
+    public IReadOnlyList<RouteDecision> RouteBatch(IEnumerable<RouteRequest> requests) =>
+        RouteBatchCore(requests.ToList(), null, null);
+
+    private List<RouteDecision> RouteBatchCore(IReadOnlyList<RouteRequest> requests, IEnumerable<ILayaHook>? hooks, bool? hooksRaise)
+    {
+        var decisions = new List<RouteDecision>(requests.Count);
+        for (var i = 0; i < requests.Count; i++)
+        {
+            var r = requests[i] ?? throw new ArgumentException($"request {i} is null", nameof(requests));
+            if (r.State is null) throw new ArgumentException($"request {i} is missing required key 'state'", nameof(requests));
+            if (r.Questions is null) throw new ArgumentException($"request {i} is missing required key 'questions'", nameof(requests));
+            decisions.Add(Route(r.State, r.Questions, r.ToRouteOptions(hooks, hooksRaise)));
+        }
+        return decisions;
+    }
+
+    /// <summary>
+    /// Route and answer a heterogeneous batch with as few loads as possible (Python <c>predict_batch</c>).
+    /// Requests are grouped by checkpoint (in first-appearance order, so each loads at most once),
+    /// then by question set, token budget and (for checkpoints with per-language temperatures)
+    /// language, and each group goes through <see cref="LayaAgent.PredictBatch"/> to share forward
+    /// passes. Results come back in input order with <see cref="LayaResult.Routing"/> set.
+    /// </summary>
+    /// <remarks>
+    /// Router hooks run per request, as <see cref="Predict(LayaState, Questions, RouteOptions?)"/> runs
+    /// them: a start hook can rewrite or skip its request before the grouping, and an end hook sees
+    /// its result. If a group fails, every started request without a result gets <c>OnError</c>, then
+    /// every started request gets <c>OnPredictEnd</c>, before the exception propagates.
+    /// <paramref name="options"/> gives the batch size, length sorting, hooks and token budget for
+    /// every request; the language comes from each <see cref="RouteRequest.Lang"/>, not
+    /// <see cref="PredictOptions.Lang"/>.
+    /// </remarks>
+    public IReadOnlyList<LayaResult> PredictBatch(IEnumerable<RouteRequest> requests, BatchOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
+        options ??= new BatchOptions();
+        var reqs = requests.ToList();
+        var raise = options.HooksRaise ?? HooksRaise;
+        var decisions = RouteBatchCore(reqs, options.Hooks, options.HooksRaise);
+        if (decisions.Count == 0) return [];
+
+        // First-appearance order keeps loads deterministic and collapses an interleaved workload to
+        // one load per checkpoint for this call.
+        var groups = new OrderedDictionary<string, List<int>>(StringComparer.Ordinal);
+        for (var i = 0; i < decisions.Count; i++)
+        {
+            if (!groups.TryGetValue(decisions[i].Model, out var indices)) groups[decisions[i].Model] = indices = [];
+            indices.Add(i);
+        }
+
+        var active = Compose(options.Hooks);
+        var results = new LayaResult?[reqs.Count];
+        foreach (var (model, indices) in groups)
+        {
+            var agent = Load(model);
+            var started = new List<PredictContext>(indices.Count);
+            try
+            {
+                // One context per request, started as Predict starts one, so a hook can redact,
+                // rewrite or skip each request before it joins a shared forward pass.
+                foreach (var i in indices)
+                {
+                    var ctx = new PredictContext([reqs[i].State], reqs[i].Questions)
+                    {
+                        Decision = decisions[i],
+                        Model = model,
+                        Agent = agent,
+                        Router = this,
+                        MaxLen = options.MaxLen,
+                        HeadMaxLen = options.HeadMaxLen,
+                        Lang = reqs[i].Lang ?? decisions[i].Detection?.Language,
+                    };
+                    started.Add(ctx);
+                    Dispatch(active, h => h.OnPredictStart(ctx), ctx, raise, nameof(ILayaHook.OnPredictStart));
+                }
+
+                foreach (var pass in PassGroups(indices, started, decisions, agent))
+                {
+                    var batch = agent.PredictBatch(pass.Items.Select(x => x.Ctx.States[0]), pass.Questions, new BatchOptions
+                    {
+                        BatchSize = options.BatchSize,
+                        SortByLength = options.SortByLength,
+                        MaxLen = pass.MaxLen,
+                        HeadMaxLen = pass.HeadMaxLen,
+                        Lang = pass.Lang,
+                    });
+                    if (batch.Count != pass.Items.Count)
+                        throw new InvalidOperationException($"internal error: Agent.PredictBatch returned {batch.Count} results for {pass.Items.Count} states");
+                    for (var k = 0; k < batch.Count; k++)
+                        pass.Items[k].Ctx.Results = [batch[k].WithRouting(decisions[pass.Items[k].Index])];
+                }
+            }
+            catch (Exception ex)
+            {
+                // Every started request is ended, so a hook that opens something in start always
+                // sees the matching end. A request that already has its result keeps it.
+                foreach (var ctx in started.Where(c => c.Results is null))
+                {
+                    ctx.Error = ex;
+                    try { Dispatch(active, h => h.OnError(ctx), ctx, raise, nameof(ILayaHook.OnError)); }
+                    catch (Exception hookEx) { Logger.LogWarning(hookEx, "laya: an error hook failed while handling {Error}", ex.GetType().Name); }
+                }
+                try { EndContexts(active, started, raise); }
+                catch (Exception hookEx) { Logger.LogWarning(hookEx, "laya: an end hook failed while handling {Error}", ex.GetType().Name); }
+                throw;
+            }
+
+            EndContexts(active, started, raise);
+            for (var k = 0; k < indices.Count; k++) results[indices[k]] = started[k].Results![0];
+        }
+
+        if (results.Any(r => r is null)) throw new InvalidOperationException("internal error: batch execution did not produce every result");
+        return results!;
+    }
+
+    /// <summary>
+    /// Split one checkpoint's started requests into forward-pass groups on what the start hooks left:
+    /// the same question set (order-sensitive, since options are positional), token budget and, only
+    /// when the agent has per-language temperatures, language. Skipped requests keep their results.
+    /// </summary>
+    private static List<PassGroup> PassGroups(List<int> indices, List<PredictContext> started, List<RouteDecision> decisions, LayaAgent agent)
+    {
+        var passes = new List<PassGroup>();
+        for (var k = 0; k < indices.Count; k++)
+        {
+            var ctx = started[k];
+            if (ctx.Results is not null)
+            {
+                // A cache hit short-circuits inference; keep the routing Predict would add.
+                ctx.Results = ctx.Results.Select(r => r.WithRouting(decisions[indices[k]])).ToList();
+                continue;
+            }
+            var lang = agent.Temperatures.HasLanguageOverrides ? ctx.Lang : null;
+            var schema = ctx.Questions.ToJson().ToJsonString();
+            var pass = passes.Find(p => p.Schema == schema && p.MaxLen == ctx.MaxLen && p.HeadMaxLen == ctx.HeadMaxLen && p.Lang == lang);
+            if (pass is null) passes.Add(pass = new PassGroup(schema, ctx.Questions, ctx.MaxLen, ctx.HeadMaxLen, lang));
+            pass.Items.Add((indices[k], ctx));
+        }
+        return passes;
+    }
+
+    private sealed record PassGroup(string Schema, Questions Questions, int? MaxLen, int? HeadMaxLen, string? Lang)
+    {
+        public List<(int Index, PredictContext Ctx)> Items { get; } = [];
+    }
+
+    /// <summary>
+    /// End each request of a batch as Predict's <c>finally</c> ends one: every context gets its
+    /// <c>OnPredictEnd</c> even if an earlier one's end hook throws; the first such failure on a
+    /// context that had not failed is thrown afterwards.
+    /// </summary>
+    private void EndContexts(ILayaHook[] active, List<PredictContext> contexts, bool raise)
+    {
+        foreach (var ctx in contexts)
+        {
+            ctx.ElapsedMs = ctx.ElapsedNow();
+            if (ctx.Results is not null) ctx.Usage = Usage.Sum(ctx.Results);
+        }
+        Exception? first = null;
+        foreach (var ctx in contexts)
+        {
+            try { Dispatch(active, h => h.OnPredictEnd(ctx), ctx, raise, nameof(ILayaHook.OnPredictEnd)); }
+            catch (Exception hookEx)
+            {
+                if (ctx.Error is not null) Logger.LogWarning(hookEx, "laya: an end hook failed while handling {Error}", ctx.Error.GetType().Name);
+                else first ??= hookEx;
+            }
+        }
+        if (first is not null) ExceptionDispatchInfo.Throw(first);
+    }
+
+    /// <summary>The same questions over many states, each routed on its own; see <see cref="PredictBatch(IEnumerable{RouteRequest}, BatchOptions?)"/>.</summary>
+    public IReadOnlyList<LayaResult> PredictBatch(IEnumerable<LayaState> states, Questions questions, BatchOptions? options = null) =>
+        PredictBatch(states.Select(s => new RouteRequest(s, questions) { Lang = options?.Lang }), options);
+
+    public Task<IReadOnlyList<LayaResult>> PredictBatchAsync(IEnumerable<RouteRequest> requests, BatchOptions? options = null, CancellationToken ct = default) =>
+        System.Threading.Tasks.Task.Run(() => PredictBatch(requests, options), ct);
+
+    public Task<IReadOnlyList<LayaResult>> PredictBatchAsync(IEnumerable<LayaState> states, Questions questions, BatchOptions? options = null, CancellationToken ct = default) =>
+        System.Threading.Tasks.Task.Run(() => PredictBatch(states, questions, options), ct);
+
+    /// <summary>
+    /// Stream heterogeneous requests through <see cref="PredictBatch(IEnumerable{RouteRequest}, BatchOptions?)"/>
+    /// a chunk of <see cref="BatchOptions.BatchSize"/> (default <see cref="BatchOptions.DefaultStreamBatchSize"/>)
+    /// at a time, yielding results in input order. Each chunk loads the checkpoints it needs, so with
+    /// mixed languages keep <see cref="RouterOptions.MaxLoaded"/> at least the number of checkpoints in use.
+    /// </summary>
+    public IAsyncEnumerable<LayaResult> PredictStreamAsync(IEnumerable<RouteRequest> requests, BatchOptions? options = null, CancellationToken ct = default) =>
+        PredictStreamAsync(requests.ToAsyncEnumerable(), options, ct);
+
+    /// <inheritdoc cref="PredictStreamAsync(IEnumerable{RouteRequest}, BatchOptions?, CancellationToken)"/>
+    public async IAsyncEnumerable<LayaResult> PredictStreamAsync(IAsyncEnumerable<RouteRequest> requests, BatchOptions? options = null,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
+        var size = options?.BatchSize is > 0 ? options.BatchSize.Value : BatchOptions.DefaultStreamBatchSize;
+        await foreach (var chunk in requests.Chunk(size).WithCancellation(ct).ConfigureAwait(false))
+        {
+            ct.ThrowIfCancellationRequested();
+            foreach (var r in await PredictBatchAsync(chunk, options, ct).ConfigureAwait(false))
+                yield return r;
+        }
+    }
 
     LayaResult ILayaPredictor.Predict(LayaState state, Questions questions, PredictOptions? options) =>
         Predict(state, questions, AsRouteOptions(options));

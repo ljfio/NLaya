@@ -22,8 +22,10 @@ answers typed questions (`choice`, `score`, `noul`) about a state in one forward
 https://github.com/ljfio/NLaya.
 
 - **Works:** all three checkpoints (`english`, `multilingual`, `typed-decisions`) on both backends
-  (TorchSharp, ONNX Runtime). `LayaAgent.Predict` / `PredictBatch`, `Router`, `LanguageDetector`,
-  `EmailCleaner`, `Presets`, hooks and per-language temperatures are all implemented.
+  (TorchSharp, ONNX Runtime). `LayaAgent.Predict` / `PredictBatch`, `Router` (including `RouteBatch` /
+  `PredictBatch`, Python's `route_batch` / `predict_batch`), `LanguageDetector`, `EmailCleaner`,
+  `Presets`, hooks and per-language temperatures are all implemented. `PredictStreamAsync` (a .NET
+  addition) streams any `ILayaPredictor` a chunk at a time.
 - **Verified:** against golden fixtures from the Python library at laya commit `970dc8c`
   (`tools/fixtures/LAYA_COMMIT`). That covers 2,593 unit tests (tokenization, prompts, JSON,
   1,104 routing cases, 259 email cases) and model parity for all three checkpoints on both backends.

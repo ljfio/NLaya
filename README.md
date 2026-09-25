@@ -117,6 +117,32 @@ Routing follows the Python rules: explicit `Model`, then `Task`, then `Lang`, th
 script and language detection (`NLaya.Lang.LanguageDetector`). `typed-decisions` is only chosen when you
 ask for it, or when `AutoTaskDetection` is on and the question ids match one of its workflows.
 
+## Batch and streaming
+
+```csharp
+// Many states, one question set: shared forward passes, results in input order.
+var results = agent.PredictBatch(states, Presets.Triage(), new BatchOptions { BatchSize = 16, SortByLength = true });
+
+// Any length of input (a DB cursor, a CSV, a queue): read and scored a chunk at a time, memory stays bounded.
+await foreach (var (ticket, result) in agent.PredictStreamAsync(tickets, t => t.Body, Presets.Triage(), ct: ct))
+    await SaveAsync(ticket.Id, result.Choice("intent").Choice);
+
+// Mixed requests through the Router: each checkpoint loads once, same-question requests share passes.
+var routed = router.PredictBatch(
+[
+    new RouteRequest("I was charged twice", Presets.Triage()),
+    new RouteRequest("二重に請求されました", Presets.Triage()),
+    new RouteRequest(incident, securityQuestions) { Task = "typed_decisions" },
+]);
+```
+
+`PredictStreamAsync` works on anything that implements `ILayaPredictor` (an agent, a router, a test
+fake). It reads `BatchSize` items at a time (default 32, `BatchOptions.DefaultStreamBatchSize`) and
+answers each chunk with one `PredictBatch` call, so hooks see one call per chunk. It checks cancellation
+between chunks. `Router.RouteBatch` / `PredictBatch` port Python's `route_batch` / `predict_batch`:
+requests are grouped by checkpoint, then by question set, and Router hooks still run per request.
+`Router.PredictStreamAsync` streams `RouteRequest`s the same way.
+
 ## Presets, email and hooks
 
 ```csharp
