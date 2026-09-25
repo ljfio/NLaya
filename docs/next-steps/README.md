@@ -19,7 +19,7 @@ injection", "ML.NET", "Packages and releases"). Their planning docs were removed
 ## Where the project stands
 
 NLaya is a .NET port of the Python [`laya`](https://github.com/NandhaKishorM/laya) library. It
-answers typed questions (`choice`, `score`, `noul`) about a state in one forward pass. Private repo:
+answers typed questions (`choice`, `score`, `noul`) about a state in one forward pass. Public repo:
 https://github.com/ljfio/NLaya.
 
 - **Works:** all three checkpoints (`english`, `multilingual`, `typed-decisions`) on both backends
@@ -52,18 +52,14 @@ https://github.com/ljfio/NLaya.
 - **One type per file.** Rewrite for clarity where it helps.
 - **Commit and push to GitHub** when work is done.
 
-## Before the first release
+## Releasing
 
-- **nuget.org trusted publishing.** Add a policy on nuget.org (username menu > Trusted Publishing):
-  owner `ljfio`, repository `NLaya`, workflow file `release.yml`, no environment. Add the nuget.org
-  profile name as the `NUGET_USER` repository secret. Because the repo is private, the policy starts
-  "temporarily active" for 7 days and becomes permanent after the first successful publish.
-- **Decide visibility.** The repo is private; the package READMEs link to it. `NLaya` was free on
-  nuget.org when checked (September 2026).
-- **Run parity on Linux.** `parity.yml` does that (TorchSharp only). ONNX parity in CI waits on step 4b
+- **nuget.org trusted publishing.** The policy on nuget.org (username menu > Trusted Publishing) is
+  owner `ljfio`, repository `NLaya`, workflow file `release.yml`, no environment. `release.yml` reads
+  the nuget.org profile name from the `NUGET_USER` repository *variable* (`vars.NUGET_USER`; it isn't
+  secret).
+- **Parity on Linux.** `parity.yml` does that (TorchSharp only). ONNX parity in CI waits on step 4b
   (exports on the Hub), since exporting in CI means installing torch.
-- **macOS runners cost 10x minutes on private repos.** `build.yml` runs on Ubuntu and macOS; drop macOS
-  if minutes matter.
 
 ## Commands
 

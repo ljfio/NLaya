@@ -1,3 +1,5 @@
+using System.Text.Json.Nodes;
+
 namespace NLaya.Parity;
 
 /// <summary>
@@ -20,8 +22,14 @@ public class ConcurrencyParityTests(ParityFixture fx)
             .ToList();
 
         var sequential = states.Select(s => agent.Predict(s, questions).ToJson()).ToList();
-        var ct = TestContext.Current.CancellationToken;
-        var concurrent = await Task.WhenAll(states.Select(s => Task.Run(() => agent.Predict(s, questions).ToJson(), ct)));
+        // Eight callers at a time still interleave lengths; forty at once starved a 2-core CI runner of memory.
+        var concurrent = new JsonObject[states.Count];
+        var options = new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = TestContext.Current.CancellationToken };
+        await Parallel.ForEachAsync(Enumerable.Range(0, states.Count), options, (i, _) =>
+        {
+            concurrent[i] = agent.Predict(states[i], questions).ToJson();
+            return ValueTask.CompletedTask;
+        });
 
         for (var i = 0; i < states.Count; i++) ModelParityTests.AssertResult(sequential[i], concurrent[i]);
     }

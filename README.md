@@ -416,7 +416,7 @@ Versions come from git tags through [MinVer](https://github.com/adamralph/minver
 - **`parity.yml`**: nightly and on demand, downloads the checkpoints and runs model parity (TorchSharp).
 - **`release.yml`**: on a `v*` tag, tests, packs, pushes to nuget.org with
   [trusted publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing) (no stored API key;
-  it needs a `NUGET_USER` secret with the nuget.org profile name), and creates a GitHub release.
+  it needs a `NUGET_USER` repository variable with the nuget.org profile name), and creates a GitHub release.
 
 ## Native AOT
 
