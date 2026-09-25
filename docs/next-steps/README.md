@@ -9,11 +9,11 @@ this page first: it has the shared context the others assume.
 | 2 | Dependency injection | `AddLaya` / `AddKeyedLaya` / `AddLayaRouter`, settings, warm-up | Done |
 | 3 | Typed decisions | `agent.Decide<T>()`: a C# type in, typed values out (port of `laya.structured`) | Done; see "Typed decisions" in the root `README.md` |
 | 4 | [04-reduce-custom-code.md](04-reduce-custom-code.md) | ONNX exports on the Hub, upstream tokenizer gaps (4a, .NET 10 only, is done) | Any time |
-| 5 | [05-mlnet-pipeline-stage.md](05-mlnet-pipeline-stage.md) | An ML.NET `IEstimator`/`ITransformer` | Only if needed |
+| 5 | ML.NET pipeline stage | `NLaya.ML`: `mlContext.Transforms.Laya(...)` over an `IDataView` | Done; see "ML.NET" in the root `README.md` |
 | 6 | NuGet packages and CI | MinVer versions, `build.yml`, `parity.yml`, `release.yml` with trusted publishing | Done; see "Before the first release" |
 
-Steps 1, 2 and 6 are described in the root `README.md` ("Microsoft.Extensions.AI", "Dependency
-injection", "Packages and releases"). Their planning docs were removed once done; they're in git history.
+Steps 1, 2, 5 and 6 are described in the root `README.md` ("Microsoft.Extensions.AI", "Dependency
+injection", "ML.NET", "Packages and releases"). Their planning docs were removed once done; they're in git history.
 
 ## Where the project stands
 
@@ -27,11 +27,11 @@ https://github.com/ljfio/NLaya.
   `Presets`, hooks and per-language temperatures are all implemented. `PredictStreamAsync` (a .NET
   addition) streams any `ILayaPredictor` a chunk at a time.
 - **Verified:** against golden fixtures from the Python library at laya commit `970dc8c`
-  (`tools/fixtures/LAYA_COMMIT`). That covers 2,593 unit tests (tokenization, prompts, JSON,
+  (`tools/fixtures/LAYA_COMMIT`). That covers 2,741 unit tests (tokenization, prompts, JSON,
   1,104 routing cases, 259 email cases) and model parity for all three checkpoints on both backends.
 - **Also works:** `NLaya.Extensions.AI` (the .NET equivalent of the LangChain integrations
-  `LayaGuardrail` and `LayaRouter`, plus `AIFunction` tools and DI registration), NuGet packaging and
-  GitHub Actions. Everything targets .NET 10 only.
+  `LayaGuardrail` and `LayaRouter`, plus `AIFunction` tools and DI registration), `NLaya.ML` (an ML.NET
+  pipeline stage), NuGet packaging and GitHub Actions. Everything targets .NET 10 only.
 - **Not ported yet:** `decide(questions=...)` pass-through (use `Predict`) and the pydantic helpers,
   `shortlist`, `LayaTriage` / `LayaEvaluator`
   as chat middleware (`LayaTools.Triage` covers triage as a tool), remote `base_url` calls, the HTTP
@@ -140,3 +140,8 @@ done
 - **The solution is `NLaya.slnx`.** Pass it explicitly (`dotnet build NLaya.slnx`) if another solution file appears.
 - **The model card's Hindi example** answers `sales` (0.58), not `billing`. Python does the same, so
   it isn't a port bug.
+- **ML.NET estimators can't describe new columns publicly.** `SchemaShape.Column` has no public
+  constructor, so `NLaya.ML` calls ML.NET's internal `SchemaShape.Create` through `[UnsafeAccessor]`
+  (`SchemaShapes.cs`). A rename in a future `Microsoft.ML` fails `LayaTransformerTests`.
+- **`ml.Data.Cache` fills columns on first read.** Without prefetching every column, reading two
+  answer columns runs the model twice.

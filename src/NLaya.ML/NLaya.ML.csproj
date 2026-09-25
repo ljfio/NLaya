@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- Not AOT-compatible: Microsoft.ML itself uses reflection and runtime code generation. -->
+    <Description>An ML.NET pipeline stage for NLaya: answer Laya questions over an IDataView, in batches.</Description>
+    <PackageTags>$(PackageTags);ml.net;mlnet;idataview</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NLaya/NLaya.csproj" />
+    <PackageReference Include="Microsoft.ML" Version="5.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="NLaya.Tests" />
+    <InternalsVisibleTo Include="NLaya.Parity" />
+  </ItemGroup>
+</Project>

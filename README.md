@@ -185,6 +185,38 @@ between chunks. `Router.RouteBatch` / `PredictBatch` port Python's `route_batch`
 requests are grouped by checkpoint, then by question set, and Router hooks still run per request.
 `Router.PredictStreamAsync` streams `RouteRequest`s the same way.
 
+## ML.NET
+
+`NLaya.ML` adds Laya as a pipeline step over an `IDataView` (a CSV, a database query, any ML.NET data):
+
+```csharp
+var ml = new MLContext();
+var scored = ml.Transforms.Laya(agent, Presets.Triage(), "Body").Fit(data).Transform(data);
+
+foreach (var row in ml.Data.CreateEnumerable<TriagedTicket>(scored, reuseRowObject: false))
+    Console.WriteLine($"{row.Id}: {row.Intent} ({row.IntentConfidence:P0}), urgent: {row.IsUrgent}");
+
+public sealed class TriagedTicket
+{
+    public int Id { get; set; }
+    [ColumnName("intent")] public string Intent { get; set; } = "";
+    [ColumnName("intent_confidence")] public float IntentConfidence { get; set; }
+    [ColumnName("is_urgent")] public bool IsUrgent { get; set; }
+}
+```
+
+Each question adds typed columns: the answer under its id (`choice` → text label, `score` → expected
+score, `noul` → boolean), `id_probs` (a vector with one slot per option, named by label) or
+`id_probability` (P(true)), and `id_confidence`. Pass several input columns to build a JSON object
+state keyed by column name. `LayaTransformerOptions` sets the chunk size (rows per `PredictBatch`
+call, default 256), the forward-pass batch and a column-name prefix.
+
+Rows are answered lazily, and only when an answer column is read. Every cursor over the answer
+columns runs the model, so to read the output more than once, cache it with every column prefetched:
+`ml.Data.Cache(scored, [.. scored.Schema.Select(c => c.Name)])`. The transformer isn't saved with the
+ML.NET model (the Laya model lives in the predictor) and has no `PredictionEngine`. `Microsoft.ML`
+isn't AOT-compatible, so neither is this package.
+
 ## Presets, email and hooks
 
 ```csharp
@@ -287,6 +319,7 @@ var router = new Router(new RouterOptions { ConfigureAgent = (name, o) => o.UseO
 | `src/NLaya.TorchSharp` | `UseTorchSharp()`: the ModernBERT encoder and Laya decision head as TorchSharp ops, weights read from `model.safetensors` |
 | `src/NLaya.Onnx` | `UseOnnx(dir)`: runs `encoder.onnx` then `head.onnx` with ONNX Runtime |
 | `src/NLaya.Extensions.AI` | `IChatClient` guardrail and router, `AIFunction` tools, and `AddLaya` / `AddLayaRouter` registration |
+| `src/NLaya.ML` | `mlContext.Transforms.Laya(...)`: an ML.NET estimator/transformer that adds answer columns to an `IDataView` |
 | `tests/NLaya.Tests` | Parity with Python for tokenization, prompts, JSON, routing and email (golden fixtures), and the Extensions.AI middleware and DI with fakes |
 | `tests/NLaya.Parity` | Model parity for all three checkpoints on both backends, and an end-to-end guardrail test |
 | `tools/fixtures` | Regenerates the fixtures and the embedded tables from the Python reference |
@@ -317,6 +350,7 @@ The golden fixtures come from the Python reference at the commit in `tools/fixtu
 | `NLaya.TorchSharp` | The TorchSharp backend. The app adds `TorchSharp-cpu`, `TorchSharp-cuda-linux` or `TorchSharp-cuda-windows` |
 | `NLaya.Onnx` | The ONNX Runtime backend (CPU). Add `Microsoft.ML.OnnxRuntime.Gpu` for CUDA |
 | `NLaya.Extensions.AI` | `Microsoft.Extensions.AI` middleware and dependency injection |
+| `NLaya.ML` | An ML.NET pipeline stage (`mlContext.Transforms.Laya`) |
 
 Versions come from git tags through [MinVer](https://github.com/adamralph/minver): tag `v0.1.0` builds
 `0.1.0`, and untagged commits build `0.1.0-alpha.0.<height>`. GitHub Actions runs:
@@ -329,7 +363,7 @@ Versions come from git tags through [MinVer](https://github.com/adamralph/minver
 
 ## Native AOT
 
-All four packages are marked `IsAotCompatible`, so the trim and AOT analyzers fail the build on
+`NLaya`, `NLaya.TorchSharp`, `NLaya.Onnx` and `NLaya.Extensions.AI` are marked `IsAotCompatible`, so the trim and AOT analyzers fail the build on
 reflection-based code. Apps can publish with `<PublishAot>true</PublishAot>`: both backends run under
 Native AOT and give the same answers as a JIT build (ONNX Runtime and TorchSharp load their native
 libraries from the app folder; TorchSharp itself reports IL3000 warnings about `Assembly.Location`
@@ -358,7 +392,7 @@ questions, JSON states, tokenization, decoding and DI binding with a fake backen
 ## Roadmap
 
 Planned work, with the context needed to pick each item up, is in [`docs/next-steps/`](docs/next-steps/README.md):
-publishing the ONNX exports, closing tokenizer gaps upstream, and an optional ML.NET pipeline stage.
+publishing the ONNX exports and closing tokenizer gaps upstream.
 
 License: Apache-2.0 (same as laya). NLaya is a port of [laya](https://github.com/NandhaKishorM/laya) by
 Convai Innovations / NandhaKishorM, and the model weights are theirs.

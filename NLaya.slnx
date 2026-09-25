@@ -7,6 +7,7 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/NLaya.Extensions.AI/NLaya.Extensions.AI.csproj" />
+    <Project Path="src/NLaya.ML/NLaya.ML.csproj" />
     <Project Path="src/NLaya.Onnx/NLaya.Onnx.csproj" />
     <Project Path="src/NLaya.TorchSharp/NLaya.TorchSharp.csproj" />
     <Project Path="src/NLaya/NLaya.csproj" />
