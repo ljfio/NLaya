@@ -18,7 +18,10 @@ internal sealed class LayaNetwork : IDisposable
     private readonly int _headLayers;
     private readonly int _headHeads;
     private readonly ScalarType _dtype;
-    private readonly Dictionary<(double Theta, long Len), (Tensor Cos, Tensor Sin)> _rope = new();
+    // One cos/sin table per theta, covering every position; each pass takes a view of its length.
+    private readonly Dictionary<double, (Tensor Cos, Tensor Sin)> _rope = new();
+    // Tables outgrown by a longer input. A concurrent pass may still read them, so they live until Dispose.
+    private readonly List<Tensor> _outgrownRope = [];
     private readonly Lock _ropeLock = new();
 
     public Device Device { get; }
@@ -136,29 +139,38 @@ internal sealed class LayaNetwork : IDisposable
         return cat([halves[1].neg(), halves[0]], -1);
     }
 
+    /// <summary>
+    /// cos/sin for positions [0, len), as views of a table built once per theta. The tables are
+    /// never disposed while the network is alive, so concurrent passes can't free each other's.
+    /// </summary>
     private (Tensor Cos, Tensor Sin) Rope(double theta, long len, int dim)
     {
         lock (_ropeLock)
         {
-            if (_rope.TryGetValue((theta, len), out var cached)) return cached;
-            using var scope = NewDisposeScope();
-            // Same float32 arithmetic as transformers' default rotary embedding.
-            var invFreq = 1.0f / pow(tensor(theta, ScalarType.Float32), arange(0, dim, 2, ScalarType.Int64).to(ScalarType.Float32) / dim);
-            var t = arange(len, ScalarType.Int64).to(ScalarType.Float32);
-            var freqs = outer(t, invFreq);
-            var emb = cat([freqs, freqs], -1);
-            var cos = emb.cos().to(_dtype, Device).reshape(1, 1, len, dim).MoveToOuterDisposeScope();
-            var sin = emb.sin().to(_dtype, Device).reshape(1, 1, len, dim).MoveToOuterDisposeScope();
-            cos.DetachFromDisposeScope();
-            sin.DetachFromDisposeScope();
-            if (_rope.Count > 32)
+            if (!_rope.TryGetValue(theta, out var table) || table.Cos.shape[2] < len)
             {
-                foreach (var (c, s) in _rope.Values) { c.Dispose(); s.Dispose(); }
-                _rope.Clear();
+                if (_rope.ContainsKey(theta)) _outgrownRope.AddRange([table.Cos, table.Sin]);
+                table = RopeTable(theta, Math.Max(len, _cfg.MaxPositionEmbeddings), dim);
+                _rope[theta] = table;
             }
-            _rope[(theta, len)] = (cos, sin);
-            return (cos, sin);
+            return (table.Cos.narrow(2, 0, len), table.Sin.narrow(2, 0, len));
         }
+    }
+
+    private (Tensor Cos, Tensor Sin) RopeTable(double theta, long len, int dim)
+    {
+        using var scope = NewDisposeScope();
+        // Same float32 arithmetic as transformers' default rotary embedding. Each position is computed
+        // on its own, so a view of a longer table equals a table built for the shorter length.
+        var invFreq = 1.0f / pow(tensor(theta, ScalarType.Float32), arange(0, dim, 2, ScalarType.Int64).to(ScalarType.Float32) / dim);
+        var t = arange(len, ScalarType.Int64).to(ScalarType.Float32);
+        var freqs = outer(t, invFreq);
+        var emb = cat([freqs, freqs], -1);
+        var cos = emb.cos().to(_dtype, Device).reshape(1, 1, len, dim).MoveToOuterDisposeScope();
+        var sin = emb.sin().to(_dtype, Device).reshape(1, 1, len, dim).MoveToOuterDisposeScope();
+        cos.DetachFromDisposeScope();
+        sin.DetachFromDisposeScope();
+        return (cos, sin);
     }
 
     private (Tensor Logits, Tensor ActLogits) Head(Tensor h, Tensor attentionMask, Tensor markerPos, Tensor markerMask, Tensor qtype)
@@ -225,5 +237,7 @@ internal sealed class LayaNetwork : IDisposable
         _w.Clear();
         foreach (var (c, s) in _rope.Values) { c.Dispose(); s.Dispose(); }
         _rope.Clear();
+        foreach (var t in _outgrownRope) t.Dispose();
+        _outgrownRope.Clear();
     }
 }

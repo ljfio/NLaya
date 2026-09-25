@@ -43,6 +43,10 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     private readonly Dictionary<Checkpoint, Lazy<LayaAgent>> _agents = [];
     private readonly HashSet<Checkpoint> _attached = [];
     private readonly List<Checkpoint> _order = []; // least recently used first
+    // Router calls in flight per agent. An agent evicted or unloaded while in use is retired and
+    // disposed when its last call returns, so its (possibly GPU) memory is freed deterministically.
+    private readonly Dictionary<LayaAgent, int> _leases = [];
+    private readonly HashSet<LayaAgent> _retired = [];
     private readonly Lock _lock = new();
     private int _maxLoaded;
 
@@ -58,7 +62,10 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     /// <summary>A router whose checkpoints all load with <paramref name="configure"/>, e.g. <c>o => o.UseTorchSharp()</c>.</summary>
     public Router(Action<LayaOptions> configure) : this(new RouterOptions { ConfigureAgent = (_, o) => configure(o) }) { }
 
+    /// <summary>The checkpoint used when routing can't tell (no letters, or an undecided Latin-script language).</summary>
     public Checkpoint Default { get; }
+
+    /// <summary>Where each checkpoint loads from: the bundle repo (or standalone repos) plus any <see cref="RouterOptions.Models"/> overrides.</summary>
     public IReadOnlyDictionary<Checkpoint, CheckpointSpec> Models => _models;
 
     /// <summary>The checkpoints loaded now, least recently used first.</summary>
@@ -81,7 +88,17 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     /// the router's lock: requests for checkpoints already loaded carry on, and concurrent requests for
     /// the same checkpoint share one load.
     /// </summary>
-    public LayaAgent Load(Checkpoint key)
+    /// <remarks>
+    /// The agent belongs to the router (unless you <see cref="Attach"/>ed it): when it is evicted or
+    /// unloaded it is disposed as soon as the router's own calls on it finish. Use it while it is
+    /// loaded, or call <see cref="Load"/> again, rather than keeping it.
+    /// </remarks>
+    public LayaAgent Load(Checkpoint key) => LoadCore(key, lease: false);
+
+    /// <summary>Load (or find) the agent and take a lease on it, so eviction can't dispose it mid-call.</summary>
+    private AgentLease Lease(Checkpoint key) => new(this, LoadCore(key, lease: true));
+
+    private LayaAgent LoadCore(Checkpoint key, bool lease)
     {
         Lazy<LayaAgent> entry;
         lock (_lock)
@@ -89,7 +106,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
             if (_agents.TryGetValue(key, out var existing) && existing.IsValueCreated)
             {
                 Touch(key);
-                return existing.Value;
+                return Acquire(existing.Value, lease);
             }
             entry = existing ?? (_agents[key] = new Lazy<LayaAgent>(() => LoadAgent(key)));
         }
@@ -110,22 +127,61 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         }
 
         List<Checkpoint> evicted;
+        List<LayaAgent> dispose;
         lock (_lock)
         {
-            // Unloaded while loading: hand the agent to this caller only. Loaded by a concurrent caller: already counted.
-            if (!_agents.TryGetValue(key, out var current) || current != entry) return agent;
+            if (!_agents.TryGetValue(key, out var current) || current != entry)
+            {
+                // Unloaded while loading: this caller gets the agent, and nobody else will. A leased
+                // one is disposed when the lease ends; an unleased one belongs to the caller.
+                if (lease) _retired.Add(agent);
+                return Acquire(agent, lease);
+            }
             if (_order.Contains(key))
             {
+                // Loaded by a concurrent caller: already counted.
                 Touch(key);
-                return agent;
+                return Acquire(agent, lease);
             }
             _order.Add(key);
-            evicted = EvictLocked();
+            (evicted, dispose) = EvictLocked();
+            Acquire(agent, lease);
         }
+        DisposeAll(dispose);
         // Lifecycle hooks run outside the lock, so a hook may call back into the router.
         Lifecycle(evicted, evict: true);
         Lifecycle([key], evict: false, agent);
         return agent;
+    }
+
+    private LayaAgent Acquire(LayaAgent agent, bool lease)
+    {
+        if (lease) _leases[agent] = _leases.GetValueOrDefault(agent) + 1;
+        return agent;
+    }
+
+    private void Release(LayaAgent agent)
+    {
+        lock (_lock)
+        {
+            var n = _leases[agent] - 1;
+            if (n > 0)
+            {
+                _leases[agent] = n;
+                return;
+            }
+            _leases.Remove(agent);
+            if (!_retired.Remove(agent)) return;
+        }
+        agent.Dispose();
+    }
+
+    /// <summary>A router call's hold on an agent; disposing it releases the hold.</summary>
+    private readonly struct AgentLease(Router router, LayaAgent agent) : IDisposable
+    {
+        public LayaAgent Agent => agent;
+
+        public void Dispose() => router.Release(agent);
     }
 
     private LayaAgent LoadAgent(Checkpoint key)
@@ -139,12 +195,17 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         });
     }
 
-    /// <summary>Register an agent you already built instead of loading a second copy.</summary>
+    /// <summary>Register an agent you already built instead of loading a second copy. The router never disposes it.</summary>
     public LayaAgent Attach(Checkpoint key, LayaAgent agent)
     {
         ArgumentNullException.ThrowIfNull(agent);
+        List<LayaAgent> dispose;
         lock (_lock)
         {
+            // A router-loaded agent this replaces is retired like an evicted one.
+            dispose = _agents.TryGetValue(key, out var old) && old.IsValueCreated && !_attached.Contains(key) && old.Value != agent
+                ? RetireLocked([old.Value])
+                : [];
             var loaded = new Lazy<LayaAgent>(() => agent);
             _ = loaded.Value;
             _agents[key] = loaded;
@@ -152,6 +213,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
             Touch(key);
             _maxLoaded = Math.Max(_maxLoaded, _agents.Count);
         }
+        DisposeAll(dispose);
         return agent;
     }
 
@@ -164,28 +226,33 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         return this;
     }
 
+    /// <summary><see cref="Preload"/> on the thread pool.</summary>
     public Task<Router> PreloadAsync(IEnumerable<Checkpoint>? checkpoints = null, CancellationToken ct = default) =>
         Task.Run(() => Preload(checkpoints), ct);
 
-    /// <summary>Drop one checkpoint, or all. Memory is reclaimed once in-flight calls finish.</summary>
+    /// <summary>
+    /// Drop one checkpoint, or all. Agents the router loaded are disposed once in-flight calls on
+    /// them finish; attached agents are only forgotten.
+    /// </summary>
     public void Unload(Checkpoint? checkpoint = null)
     {
         List<Checkpoint> freed;
+        List<LayaAgent> dispose;
         lock (_lock)
         {
-            if (checkpoint is not { } key)
+            var keys = checkpoint is { } key ? [key] : _agents.Keys.ToList();
+            // Only loaded checkpoints get OnEvict; one still loading just never joins.
+            freed = keys.Where(_order.Contains).ToList();
+            var owned = new List<LayaAgent>();
+            foreach (var k in keys)
             {
-                freed = _order.ToList();
-                _agents.Clear();
-                _order.Clear();
+                if (_agents.Remove(k, out var entry) && entry.IsValueCreated && !_attached.Contains(k)) owned.Add(entry.Value);
+                _attached.Remove(k);
+                _order.Remove(k);
             }
-            else
-            {
-                freed = _agents.Remove(key) ? [key] : [];
-                _order.Remove(key);
-            }
+            dispose = RetireLocked(owned);
         }
-        GC.Collect();
+        DisposeAll(dispose);
         Lifecycle(freed, evict: true);
     }
 
@@ -195,18 +262,36 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         _order.Add(key);
     }
 
-    private List<Checkpoint> EvictLocked()
+    private (List<Checkpoint> Evicted, List<LayaAgent> Dispose) EvictLocked()
     {
         var evicted = new List<Checkpoint>();
+        var owned = new List<LayaAgent>();
         while (_order.Count > _maxLoaded)
         {
             var victim = _order[0];
             _order.RemoveAt(0);
-            if (_agents.Remove(victim)) evicted.Add(victim);
+            if (!_agents.Remove(victim, out var entry)) continue;
+            evicted.Add(victim);
+            if (!_attached.Remove(victim) && entry.IsValueCreated) owned.Add(entry.Value);
         }
-        // Evicted agents are not disposed: a concurrent call may still hold one. The GC frees them.
-        if (evicted.Count > 0) GC.Collect();
-        return evicted;
+        return (evicted, RetireLocked(owned));
+    }
+
+    /// <summary>Agents no longer served: the idle ones are returned to dispose now, the busy ones wait for their last lease.</summary>
+    private List<LayaAgent> RetireLocked(List<LayaAgent> agents)
+    {
+        var idle = new List<LayaAgent>();
+        foreach (var a in agents)
+        {
+            if (_leases.ContainsKey(a)) _retired.Add(a);
+            else idle.Add(a);
+        }
+        return idle;
+    }
+
+    private static void DisposeAll(List<LayaAgent> agents)
+    {
+        foreach (var a in agents) a.Dispose();
     }
 
     private void Lifecycle(IEnumerable<Checkpoint> checkpoints, bool evict, LayaAgent? agent = null)
@@ -295,7 +380,8 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     {
         options ??= new RouteOptions();
         var decision = Route(state, questions, options);
-        var agent = Load(decision.Checkpoint);
+        using var lease = Lease(decision.Checkpoint);
+        var agent = lease.Agent;
         var lang = options.Lang ?? decision.Detection?.Language;
         var ctx = new PredictContext([state], questions)
         {
@@ -318,6 +404,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     public LayaResult Predict(object state, Questions questions, RouteOptions? options = null) =>
         Predict(LayaState.From(state), questions, options);
 
+    /// <summary><see cref="Predict(LayaState, Questions, RouteOptions?)"/> on the thread pool; <paramref name="ct"/> only cancels a call that hasn't started yet.</summary>
     public Task<LayaResult> PredictAsync(LayaState state, Questions questions, RouteOptions? options = null, CancellationToken ct = default) =>
         Task.Run(() => Predict(state, questions, options), ct);
 
@@ -381,7 +468,8 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         var results = new LayaResult?[reqs.Count];
         foreach (var (model, indices) in groups)
         {
-            var agent = Load(model);
+            using var lease = Lease(model);
+            var agent = lease.Agent;
             var started = new List<PredictContext>(indices.Count);
             try
             {
@@ -555,16 +643,19 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         },
     };
 
-    /// <summary>Disposes the agents this router loaded (attached agents belong to the caller).</summary>
+    /// <summary>Disposes the agents this router loaded, including retired ones still in use (attached agents belong to the caller).</summary>
     public void Dispose()
     {
         List<LayaAgent> owned;
         lock (_lock)
         {
-            owned = _agents.Where(kv => !_attached.Contains(kv.Key) && kv.Value.IsValueCreated).Select(kv => kv.Value.Value).ToList();
+            owned = _agents.Where(kv => !_attached.Contains(kv.Key) && kv.Value.IsValueCreated).Select(kv => kv.Value.Value)
+                .Concat(_retired).Distinct().ToList();
             _agents.Clear();
+            _attached.Clear();
             _order.Clear();
+            _retired.Clear();
         }
-        foreach (var a in owned) a.Dispose();
+        DisposeAll(owned);
     }
 }

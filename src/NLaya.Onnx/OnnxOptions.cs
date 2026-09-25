@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.ML.OnnxRuntime;
 
 namespace NLaya.Onnx;
@@ -20,4 +21,7 @@ public sealed class OnnxOptions
 
     /// <summary>Tweak the session options (threads, other execution providers).</summary>
     public Action<SessionOptions>? Configure { get; set; }
+
+    /// <summary>Where the backend logs a CUDA fallback. <c>UseOnnx</c> copies <see cref="LayaOptions.Logger"/>.</summary>
+    public ILogger? Logger { get; set; }
 }

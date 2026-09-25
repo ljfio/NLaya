@@ -19,6 +19,8 @@ public sealed class LayaTokenizer
 
     private readonly BpeTokenizer _bpe;
     private readonly Dictionary<string, int> _vocab;
+    private readonly Dictionary<string, int>.AlternateLookup<ReadOnlySpan<char>> _vocabSpan;
+    private readonly int[] _byteIds;
     private readonly Dictionary<string, int> _added;
     private readonly Regex? _addedRe;
     private readonly bool _metaspace;
@@ -47,6 +49,12 @@ public sealed class LayaTokenizer
 
         _metaspace = root.GetProperty("pre_tokenizer").GetRawText().Contains("\"Metaspace\"", StringComparison.Ordinal);
         var unk = model.TryGetProperty("unk_token", out var u) && u.ValueKind == JsonValueKind.String ? u.GetString() : null;
+        _vocabSpan = _vocab.GetAlternateLookup<ReadOnlySpan<char>>();
+        // Byte fallback ids, <0x00>..<0xFF>, else the unknown token (HF uses it when a byte token is missing).
+        var unkId = unk is not null && _vocab.TryGetValue(unk, out var ui) ? ui : _vocab.GetValueOrDefault("<unk>", -1);
+        _byteIds = new int[256];
+        for (var b = 0; b < 256; b++)
+            _byteIds[b] = _vocab.TryGetValue($"<0x{b:X2}>", out var id) ? id : unkId;
         _bpe = BpeTokenizer.Create(new BpeOptions(_vocab)
         {
             Merges = merges,
@@ -99,16 +107,32 @@ public sealed class LayaTokenizer
         }
         s = s.Replace(' ', Metaspace);
         if (s[0] != Metaspace) s = Metaspace + s;
-        // Byte fallback: a character missing from the vocab becomes its UTF-8 byte tokens.
-        var run = new StringBuilder();
-        foreach (var r in s.EnumerateRunes())
+        // A lone surrogate reads as U+FFFD, as it did when runes were appended one by one.
+        if (s.AsSpan().ContainsAnyInRange('\uD800', '\uDFFF')) s = string.Concat(s.EnumerateRunes().Select(r => r.ToString()));
+        // Byte fallback: a character missing from the vocab becomes its UTF-8 byte tokens. Runs of
+        // known characters go to BPE as slices of s, so nothing is allocated per character.
+        var span = s.AsSpan();
+        var runStart = 0;
+        Span<char> chars = stackalloc char[2];
+        Span<byte> bytes = stackalloc byte[4];
+        for (var i = 0; i < span.Length;)
         {
-            var ch = r.ToString();
-            if (_vocab.ContainsKey(ch)) { run.Append(ch); continue; }
-            if (run.Length > 0) { ids.AddRange(_bpe.EncodeToIds(run.ToString())); run.Clear(); }
-            ids.AddRange(Encoding.UTF8.GetBytes(ch).Select(b => _vocab.TryGetValue($"<0x{b:X2}>", out var id) ? id : _vocab["<unk>"]));
+            Rune.DecodeFromUtf16(span[i..], out var r, out var used);
+            var n = r.EncodeToUtf16(chars);
+            if (!_vocabSpan.ContainsKey(chars[..n]))
+            {
+                if (i > runStart) ids.AddRange(_bpe.EncodeToIds(span[runStart..i]));
+                var nb = r.EncodeToUtf8(bytes);
+                foreach (var b in bytes[..nb])
+                {
+                    if (_byteIds[b] < 0) throw new InvalidDataException($"tokenizer has no <0x{b:X2}> or unknown token for byte fallback");
+                    ids.Add(_byteIds[b]);
+                }
+                runStart = i + used;
+            }
+            i += used;
         }
-        if (run.Length > 0) ids.AddRange(_bpe.EncodeToIds(run.ToString()));
+        if (runStart < span.Length) ids.AddRange(_bpe.EncodeToIds(span[runStart..]));
     }
 
     private (int Id, string Token) Special(JsonElement? config, string key, params string[] aliases)

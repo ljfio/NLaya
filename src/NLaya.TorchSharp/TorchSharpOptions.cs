@@ -16,7 +16,11 @@ public sealed class TorchSharpOptions
     /// <summary>Weight/compute precision. Null is float32; float16/bfloat16 are faster on GPUs.</summary>
     public ScalarType? DType { get; set; }
 
-    /// <summary>CPU intra-op threads; null leaves libtorch's default.</summary>
+    /// <summary>
+    /// CPU intra-op threads; null leaves libtorch's default. libtorch has one thread pool per process,
+    /// so this applies to every agent, and the last backend built with it set wins. Prefer setting it
+    /// once at startup (or <c>torch.set_num_threads</c>) when several agents share a process.
+    /// </summary>
     public int? NumThreads { get; set; }
 
     public ILogger? Logger { get; set; }

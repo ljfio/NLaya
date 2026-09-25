@@ -66,9 +66,14 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
         return PredictBatchCore(states.ToList(), questions, options, options.BatchSize, options.SortByLength).ToList();
     }
 
+    /// <summary>
+    /// <see cref="Predict(LayaState, Questions, PredictOptions?)"/> on the thread pool. Inference is
+    /// CPU- or GPU-bound, so <paramref name="ct"/> only cancels a call that hasn't started yet.
+    /// </summary>
     public Task<LayaResult> PredictAsync(LayaState state, Questions questions, PredictOptions? options = null, CancellationToken ct = default) =>
         Task.Run(() => Predict(state, questions, options), ct);
 
+    /// <summary><see cref="PredictBatch"/> on the thread pool; <paramref name="ct"/> only cancels a call that hasn't started yet.</summary>
     public Task<IReadOnlyList<LayaResult>> PredictBatchAsync(IEnumerable<LayaState> states, Questions questions, BatchOptions? options = null, CancellationToken ct = default) =>
         Task.Run(() => PredictBatch(states, questions, options), ct);
 
@@ -142,7 +147,8 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
         {
             var optionCounts = state.Rows.Select(r => r.Markers.Length).ToList();
             var answers = Decoder.Decode(output, act, row, ids, questions, optionCounts, Temperatures, lang);
-            var tokens = batch.Lengths.Skip(row).Take(state.Rows.Count).Sum();
+            var tokens = 0;
+            foreach (var n in batch.Lengths.AsSpan(row, state.Rows.Count)) tokens += n;
             results[state.Index] = new LayaResult(ModelId, answers, new Usage(tokens));
             row += state.Rows.Count;
         }

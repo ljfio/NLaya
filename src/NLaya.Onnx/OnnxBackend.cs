@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.ML.OnnxRuntime;
 
 using NLaya.Backends;
@@ -24,14 +25,22 @@ public sealed class OnnxBackend : ILayaBackend
         if (options.EnableTelemetry) OrtEnv.Instance().EnableTelemetryEvents();
         else OrtEnv.Instance().DisableTelemetryEvents();
 
+        var log = options.Logger ?? NullLogger.Instance;
         var cuda = false;
+        var warned = false;
         SessionOptions Make()
         {
             var so = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
             if (options.UseCuda)
             {
+                // A missing provider (no Microsoft.ML.OnnxRuntime.Gpu, no CUDA) keeps CPU, like TorchSharp's fallback.
                 try { so.AppendExecutionProvider_CUDA(); cuda = true; }
-                catch (Exception) { cuda = false; } // provider missing: keep CPU
+                catch (Exception e)
+                {
+                    cuda = false;
+                    if (!warned) log.CudaUnavailable(e, e.Message);
+                    warned = true;
+                }
             }
             options.Configure?.Invoke(so);
             return so;

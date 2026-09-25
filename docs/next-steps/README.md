@@ -123,9 +123,14 @@ done
   `OnnxOptions.EnableTelemetry` is set. libtorch was not involved.
 - **The Router uses the bundle repo.** Its default is `convaiinnovations/laya` with subfolders, as
   in Python. The bundle's `multilingual/` is a separate 680 MB copy from the standalone repo.
-- **Evicted agents aren't disposed.** When the Router evicts an agent, it drops the reference and
-  lets the GC free it, because a concurrent call may still hold it. `Router.Dispose` disposes the
-  agents it loaded.
+- **Evicted agents are disposed when their last call returns.** Router calls hold a lease on the
+  agent they use. Eviction or `Unload` disposes an idle agent at once and retires a busy one until its
+  last lease ends, so GPU memory comes back deterministically (the Router used to leave this to the GC,
+  which doesn't run finalizers promptly). An agent returned by the public `Router.Load` isn't leased,
+  so it can be disposed once evicted. Attached agents are never disposed by the Router.
+- **One RoPE table per theta.** `LayaNetwork` builds cos/sin once per theta at
+  `max_position_embeddings` and hands each pass a `narrow` view. An older per-length cache disposed
+  tables when it filled, while another thread could still be reading them (`ConcurrencyParityTests`).
 - **Free TorchSharp intermediates per layer.** `LayaNetwork.Encode` gives each encoder layer its own
   `DisposeScope`. With one scope for the whole pass, an 8-row batch of ~640 tokens peaked at ~17 GB,
   which killed the CI runner; now the parity suite peaks at ~5.6 GB. `SafeTensors.Load` uses plain

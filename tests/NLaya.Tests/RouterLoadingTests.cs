@@ -15,8 +15,14 @@ public class RouterLoadingTests
                 Assert.Skip($"{repo} is not cached; run: {HfCache.DownloadCommand(repo)}");
     }
 
-    private static Router RouterOver(ILayaBackendFactory factory) =>
-        new(new RouterOptions { StandaloneRepos = true, ConfigureAgent = (_, o) => o.Backend = factory });
+    private static Router RouterOver(ILayaBackendFactory factory, int maxLoaded = 2) =>
+        new(new RouterOptions { StandaloneRepos = true, MaxLoaded = maxLoaded, ConfigureAgent = (_, o) => o.Backend = factory });
+
+    private static bool IsDisposed(LayaAgent agent)
+    {
+        try { _ = agent.Backend; return false; }
+        catch (ObjectDisposedException) { return true; }
+    }
 
     [Fact]
     public async Task A_slow_load_does_not_block_a_loaded_checkpoint_and_is_shared()
@@ -52,6 +58,79 @@ public class RouterLoadingTests
         Assert.Empty(router.Loaded);
         Assert.NotNull(router.Load(Checkpoint.English));
         Assert.Equal([Checkpoint.English], router.Loaded);
+    }
+
+    [Fact]
+    public void An_idle_evicted_agent_is_disposed_at_once()
+    {
+        RequireCachedCheckpoints();
+        using var router = RouterOver(new FakeBackendFactory(), maxLoaded: 1);
+        var english = router.Load(Checkpoint.English);
+        router.Load(Checkpoint.Multilingual);
+        Assert.True(IsDisposed(english));
+        Assert.Equal([Checkpoint.Multilingual], router.Loaded);
+    }
+
+    [Fact]
+    public async Task An_agent_evicted_mid_call_is_disposed_when_the_call_returns()
+    {
+        RequireCachedCheckpoints();
+        var factory = new BlockingRunFactory();
+        using var router = RouterOver(factory, maxLoaded: 1);
+        var english = router.Load(Checkpoint.English);
+        var call = Task.Run(() => router.Predict("hello", Presets.Triage(), new RouteOptions { Checkpoint = Checkpoint.English }),
+            TestContext.Current.CancellationToken);
+        Assert.True(factory.Entered.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+
+        router.Load(Checkpoint.Multilingual);   // evicts english while its call is running
+        Assert.False(IsDisposed(english));
+
+        factory.Release.Set();
+        await call;
+        Assert.True(IsDisposed(english));
+    }
+
+    [Fact]
+    public void Unloading_an_attached_agent_lets_the_router_own_the_next_load()
+    {
+        RequireCachedCheckpoints();
+        var factory = new FakeBackendFactory();
+        var router = RouterOver(factory);
+        using var mine = Laya.Load(Laya.DefaultModel, o => o.Backend = factory);
+        router.Attach(Checkpoint.English, mine);
+        router.Unload(Checkpoint.English);
+        var loaded = router.Load(Checkpoint.English);
+        Assert.NotSame(mine, loaded);
+
+        router.Dispose();
+        Assert.True(IsDisposed(loaded));
+        Assert.False(IsDisposed(mine));
+    }
+
+    /// <summary>Backends whose first <c>Run</c> waits for <see cref="Release"/>.</summary>
+    private sealed class BlockingRunFactory : ILayaBackendFactory
+    {
+        private readonly FakeBackendFactory _inner = new();
+        public ManualResetEventSlim Entered { get; } = new();
+        public ManualResetEventSlim Release { get; } = new();
+
+        public IReadOnlyList<string> RequiredFiles => [];
+
+        public ILayaBackend Create(LayaCheckpoint checkpoint) => new Blocking(_inner.Create(checkpoint), this);
+
+        private sealed class Blocking(ILayaBackend inner, BlockingRunFactory owner) : ILayaBackend
+        {
+            public string Name => inner.Name;
+
+            public BackendOutput Run(EncodedBatch batch)
+            {
+                owner.Entered.Set();
+                owner.Release.Wait(TimeSpan.FromSeconds(30));
+                return inner.Run(batch);
+            }
+
+            public void Dispose() => inner.Dispose();
+        }
     }
 
     /// <summary>Blocks backend creation for checkpoints whose id contains <c>gated</c> until <see cref="Release"/> is set.</summary>
