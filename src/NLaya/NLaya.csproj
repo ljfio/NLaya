@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <IsAotCompatible>true</IsAotCompatible>
     <Description>Typed, calibrated System 1 decisions with the Laya models (.NET port of the laya Python library).</Description>
   </PropertyGroup>
   <ItemGroup>

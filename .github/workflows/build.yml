@@ -54,3 +54,43 @@ jobs:
       - run: dotnet build NLaya.slnx -c Release
 
       - run: dotnet test --project tests/NLaya.Tests -c Release --no-build
+
+  # Native AOT: the publish fails on any trim/AOT warning (warnings are errors), then the binary
+  # checks questions, JSON states, tokenization, decoding and DI binding with a fake backend.
+  aot:
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-aot-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-aot-${{ runner.os }}-
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/huggingface/hub
+          key: hf-tokenizers-${{ hashFiles('tools/fixtures/LAYA_COMMIT') }}
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: false
+
+      - name: Download tokenizer
+        run: uvx --from huggingface_hub hf download convaiinnovations/laya-multilingual --include "tokenizer/*" --include rl_agent_config.json --include encoder/config.json
+
+      - name: Publish with Native AOT
+        run: dotnet publish samples/NLaya.AotSmoke -c Release -r linux-x64 -o aot
+
+      - name: Run
+        run: ./aot/NLaya.AotSmoke --require-tokenizer

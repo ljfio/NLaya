@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <!-- Publish with Native AOT; an IL2xxx/IL3xxx warning from NLaya fails the publish (warnings are errors). -->
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/NLaya/NLaya.csproj" />
+    <ProjectReference Include="../../src/NLaya.Onnx/NLaya.Onnx.csproj" />
+    <ProjectReference Include="../../src/NLaya.Extensions.AI/NLaya.Extensions.AI.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
+  </ItemGroup>
+</Project>

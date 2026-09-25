@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/samples/">
+    <Project Path="samples/NLaya.AotSmoke/NLaya.AotSmoke.csproj" />
     <Project Path="samples/NLaya.ChatGuardrail/NLaya.ChatGuardrail.csproj" />
     <Project Path="samples/NLaya.Quickstart/NLaya.Quickstart.csproj" />
     <Project Path="samples/NLaya.WebApi/NLaya.WebApi.csproj" />

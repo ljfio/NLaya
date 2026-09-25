@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 using Microsoft.Extensions.Logging;
 
 using NLaya.Backends;
@@ -56,6 +58,8 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
         PredictBatchCore([state], questions, options ?? new PredictOptions(), batchSize: null, sortByLength: false)[0];
 
     /// <summary>Answer questions about any object (serialized to JSON with System.Text.Json).</summary>
+    [RequiresUnreferencedCode(LayaState.ReflectionMessage)]
+    [RequiresDynamicCode(LayaState.ReflectionMessage)]
     public LayaResult Predict(object state, Questions questions, PredictOptions? options = null) =>
         Predict(LayaState.From(state), questions, options);
 

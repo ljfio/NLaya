@@ -230,6 +230,34 @@ Versions come from git tags through [MinVer](https://github.com/adamralph/minver
   [trusted publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing) (no stored API key;
   it needs a `NUGET_USER` secret with the nuget.org profile name), and creates a GitHub release.
 
+## Native AOT
+
+All four packages are marked `IsAotCompatible`, so the trim and AOT analyzers fail the build on
+reflection-based code. Apps can publish with `<PublishAot>true</PublishAot>`: both backends run under
+Native AOT and give the same answers as a JIT build (ONNX Runtime and TorchSharp load their native
+libraries from the app folder; TorchSharp itself reports IL3000 warnings about `Assembly.Location`
+but still loads).
+
+Pass states through source-generated JSON metadata rather than reflection:
+
+```csharp
+[JsonSerializable(typeof(Ticket))]
+internal partial class AppJsonContext : JsonSerializerContext;
+
+var state = LayaState.From(ticket, AppJsonContext.Default.Ticket);        // AOT-safe
+var chat = LayaState.Conversation(turns, AppJsonContext.Default.Turn);    // AOT-safe
+agent.Predict(state, questions);
+```
+
+`LayaState.From(object)`, `LayaState.Conversation(IEnumerable<object?>)` and `Predict(object, ...)`
+still work in JIT apps but are marked `[RequiresUnreferencedCode]` / `[RequiresDynamicCode]`, so a
+Native AOT publish flags them. `AddLaya` binds `LayaSettings` with the configuration binding source
+generator, so DI works under AOT too.
+
+`samples/NLaya.AotSmoke` is published with Native AOT in CI (`build.yml`, job `aot`): it checks
+questions, JSON states, tokenization, decoding and DI binding with a fake backend, and with
+`--onnx <dir>` runs a real prediction.
+
 ## Roadmap
 
 Planned work, with the context needed to pick each item up, is in [`docs/next-steps/`](docs/next-steps/README.md):

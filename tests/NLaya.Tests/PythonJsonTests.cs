@@ -47,4 +47,32 @@ public class PythonJsonTests
         Assert.False(s.IsConversation);
         Assert.True(LayaState.Conversation(["hi", new { role = "user" }]).IsConversation);
     }
+
+    [Fact]
+    public void Serializes_other_clr_values_without_reflection()
+    {
+        var node = new JsonObject { ["l"] = 9_000_000_000L, ["c"] = 'é', ["g"] = new Guid("0f8fad5b-d9cb-469f-a165-70867728950e"), ["u"] = "日本\n" };
+        Assert.Equal("{\"l\": 9000000000, \"c\": \"é\", \"g\": \"0f8fad5b-d9cb-469f-a165-70867728950e\", \"u\": \"日本\\n\"}", PythonJson.Serialize(node));
+    }
+
+    [Fact]
+    public void Source_generated_state_matches_reflection()
+    {
+        var ticket = new Ticket("héllo", 7, ["a", "b"]);
+        var typed = LayaState.From(ticket, TestJsonContext.Default.Ticket);
+        Assert.Equal(LayaState.From(ticket).Serialize(), typed.Serialize());
+        Assert.Equal("{\"Body\": \"héllo\", \"Id\": 7, \"Tags\": [\"a\", \"b\"]}", typed.Serialize());
+        Assert.Equal("hi", LayaState.From("hi", TestJsonContext.Default.String).Text);
+    }
+
+    [Fact]
+    public void Conversations_from_states_and_typed_turns_match_reflection()
+    {
+        var turns = new[] { new Ticket("a", 1, []), new Ticket("b", 2, ["x"]) };
+        var reflected = LayaState.Conversation(turns.Cast<object?>()).Serialize();
+        Assert.Equal(reflected, LayaState.Conversation(turns, TestJsonContext.Default.Ticket).Serialize());
+        Assert.Equal(reflected, LayaState.Conversation(turns.Select(t => LayaState.From(t, TestJsonContext.Default.Ticket))).Serialize());
+        Assert.Equal("[\"hi\", {\"role\": \"user\"}]",
+            LayaState.Conversation([(LayaState)"hi", LayaState.ParseJson("{\"role\": \"user\"}")]).Serialize());
+    }
 }
