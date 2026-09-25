@@ -13,7 +13,7 @@ permissions:
 jobs:
   parity:
     runs-on: ubuntu-latest
-    timeout-minutes: 30 # a green run takes ~10; a memory-starved runner stalls for an hour instead of failing
+    timeout-minutes: 45 # a green run takes ~20 on a 2-core runner; a memory-starved runner stalls for an hour instead of failing
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
