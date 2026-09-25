@@ -41,7 +41,7 @@ public sealed class LayaGuardrailChatClient : DelegatingChatClient
             var threshold = _options.Thresholds.TryGetValue(id, out var t) ? t : _options.Threshold;
             var value = answer switch
             {
-                NoulAnswer n => n.Noul,
+                NoulAnswer n => n.Probability,
                 ScoreAnswer s => s.Score,
                 _ => (double?)null,
             };

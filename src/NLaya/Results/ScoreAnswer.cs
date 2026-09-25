@@ -12,18 +12,18 @@ public sealed record ScoreAnswer : Answer
     /// <summary>Level descriptions, index 0 first (Python's <c>legend</c>).</summary>
     public required IReadOnlyList<JsonNode?> Legend { get; init; }
 
-    /// <summary>Probability per level, keyed "0", "1", ...</summary>
-    public required OrderedDictionary<string, double> Probabilities { get; init; }
+    /// <summary>Probability per level, level 0 first. <see cref="ToJson"/> keys them "0", "1", ... as Python does.</summary>
+    public required IReadOnlyList<double> Probabilities { get; init; }
 
     /// <summary>The single most likely level.</summary>
-    public int MostLikelyLevel => Probabilities.Select((kv, i) => (kv.Value, i)).MaxBy(x => x.Value).i;
+    public int MostLikelyLevel => Probabilities.Count == 0 ? 0 : Probabilities.Index().MaxBy(x => x.Item).Index;
 
     public override JsonObject ToJson()
     {
         var legend = new JsonObject();
         for (var i = 0; i < Legend.Count; i++) legend[i.ToString(System.Globalization.CultureInfo.InvariantCulture)] = Legend[i]?.DeepClone();
         var probs = new JsonObject();
-        foreach (var (k, v) in Probabilities) probs[k] = v;
+        for (var i = 0; i < Probabilities.Count; i++) probs[i.ToString(System.Globalization.CultureInfo.InvariantCulture)] = Probabilities[i];
         return new JsonObject
         {
             ["type"] = "score",

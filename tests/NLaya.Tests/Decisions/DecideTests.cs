@@ -101,7 +101,7 @@ public class DecideTests
             Legend = [],
             Confidence = 0.4,
             AnswerConfidence = 0.7,
-            Probabilities = new() { ["0"] = 0.1, ["1"] = 0.7, ["2"] = 0.2 },
+            Probabilities = [0.1, 0.7, 0.2],
         },
         ["NeedsHuman"] = FakePredictor.Noul(0.8),
         ["Escalate"] = FakePredictor.Choice("null"),

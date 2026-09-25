@@ -14,7 +14,7 @@ public class RouterTests
     {
         var c = TestFiles.Fixture("lang.json")["cases"]![i]!;
         var d = Router.Route(LayaState.FromJson(c["state"]?.DeepClone()));
-        Assert.Equal(c["route"]!["model"]!.GetValue<string>(), d.Model);
+        Assert.Equal(c["route"]!["model"]!.GetValue<string>(), d.Checkpoint.Name());
         Assert.Equal(c["route"]!["repo"]!.GetValue<string>(), d.Repo);
         Assert.Equal(c["route"]!["reason"]!.GetValue<string>(), d.Reason);
     }
@@ -27,15 +27,17 @@ public class RouterTests
             var kw = c!["kwargs"]!.AsObject();
             string? S(string k) => kw[k]?.GetValue<string>();
             var guess = S("lang_guess");
+            // Python's model= and task= strings are one typed Checkpoint in .NET, so the reason names the
+            // checkpoint rather than echoing the alias the caller typed.
+            var pinned = (S("model") ?? S("task")) is { } name ? Checkpoints.Parse(name) : (Checkpoint?)null;
             var d = Router.Route("Some English text for the router to consider", null, new RouteOptions
             {
-                Model = S("model"),
-                Task = S("task"),
+                Checkpoint = pinned,
                 Lang = S("lang"),
                 LangGuess = guess is null ? null : _ => guess,
             });
-            Assert.Equal(c["model"]!.GetValue<string>(), d.Model);
-            Assert.Equal(c["reason"]!.GetValue<string>(), d.Reason);
+            Assert.Equal(c["model"]!.GetValue<string>(), d.Checkpoint.Name());
+            Assert.Equal(pinned is { } p ? $"explicit model='{p.Name()}'" : c["reason"]!.GetValue<string>(), d.Reason);
         }
     }
 
@@ -49,16 +51,26 @@ public class RouterTests
 
         Assert.Equal(w["workflow"]!.GetValue<string>(), Router.MatchTypedDecisionsWorkflow(ids));
         var auto = new Router(new RouterOptions { AutoTaskDetection = true }).Route("hello there my friend", qs);
-        Assert.Equal((w["model"]!.GetValue<string>(), w["reason"]!.GetValue<string>()), (auto.Model, auto.Reason));
-        Assert.Equal("english", Router.Route("hello there my friend", qs).Model);
+        Assert.Equal((w["model"]!.GetValue<string>(), w["reason"]!.GetValue<string>()), (auto.Checkpoint.Name(), auto.Reason));
+        Assert.Equal(Checkpoint.English, Router.Route("hello there my friend", qs).Checkpoint);
     }
 
     [Theory]
-    [InlineData("en", "english")]
-    [InlineData("ML", "multilingual")]
-    [InlineData("typed_decisions", "typed-decisions")]
-    [InlineData(" laya-multilingual ", "multilingual")]
-    public void Normalises_aliases(string alias, string expected) => Assert.Equal(expected, Router.NormaliseName(alias));
+    [InlineData("en", Checkpoint.English)]
+    [InlineData("ML", Checkpoint.Multilingual)]
+    [InlineData("typed_decisions", Checkpoint.TypedDecisions)]
+    [InlineData(" laya-multilingual ", Checkpoint.Multilingual)]
+    [InlineData("TypedDecisions", Checkpoint.TypedDecisions)]
+    public void Parses_names_and_aliases(string alias, Checkpoint expected) => Assert.Equal(expected, Checkpoints.Parse(alias));
+
+    [Fact]
+    public void Names_are_pythons() =>
+        Assert.Equal(["english", "multilingual", "typed-decisions"], Enum.GetValues<Checkpoint>().Select(c => c.Name()));
+
+    [Fact]
+    public void Unknown_names_list_the_choices() =>
+        Assert.StartsWith("unknown model 'nope'; choose one of ['english', 'multilingual', 'typed-decisions']",
+            Assert.Throws<ArgumentException>(() => Checkpoints.Parse("nope")).Message);
 
     [Fact]
     public void Standalone_repos()

@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -69,8 +71,28 @@ public static class LayaServiceCollectionExtensions
         AddWarmup(services, RouterSettingsName, sp =>
         {
             var router = sp.GetRequiredService<Router>();
-            router.Preload(Settings(sp, RouterSettingsName).Preload ?? [router.Default]);
+            router.Preload(Settings(sp, RouterSettingsName).Preload?.Select(Checkpoints.Parse) ?? [router.Default]);
         });
+        return services;
+    }
+
+    /// <summary>
+    /// A hook for every agent and router this container builds, created by the container (so it can take
+    /// dependencies). The .NET alternative to <see cref="LayaHooks.SetDefaults"/>'s process-wide list.
+    /// A router runs the hooks per request; the agents it loads don't run them again.
+    /// </summary>
+    public static IServiceCollection AddLayaHook<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THook>(
+        this IServiceCollection services) where THook : class, ILayaHook
+    {
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ILayaHook, THook>());
+        return services;
+    }
+
+    /// <summary>An existing hook instance for every agent and router this container builds; see <see cref="AddLayaHook{THook}(IServiceCollection)"/>.</summary>
+    public static IServiceCollection AddLayaHook(this IServiceCollection services, ILayaHook hook)
+    {
+        ArgumentNullException.ThrowIfNull(hook);
+        services.AddSingleton(hook);
         return services;
     }
 
@@ -90,6 +112,7 @@ public static class LayaServiceCollectionExtensions
             o.Logger = sp.GetService<ILoggerFactory>()?.CreateLogger(typeof(LayaAgent));
             ApplyTo(s, o);
             if (s.Subfolder is not null) o.Subfolder = s.Subfolder;
+            foreach (var hook in sp.GetServices<ILayaHook>()) o.Hooks.Add(hook);
             configure(o);
         });
     }
@@ -99,9 +122,10 @@ public static class LayaServiceCollectionExtensions
         var s = Settings(sp, RouterSettingsName);
         var o = new RouterOptions { Logger = sp.GetService<ILoggerFactory>()?.CreateLogger(typeof(Router)) };
         if (s.MaxLoaded is { } maxLoaded) o.MaxLoaded = maxLoaded;
-        if (s.Default is not null) o.Default = s.Default;
+        if (s.Default is not null) o.Default = Checkpoints.Parse(s.Default);
         if (s.AutoTaskDetection is { } auto) o.AutoTaskDetection = auto;
         if (s.StandaloneRepos is { } standalone) o.StandaloneRepos = standalone;
+        foreach (var hook in sp.GetServices<ILayaHook>()) o.Hooks.Add(hook);
         configure?.Invoke(o);
         var agent = o.ConfigureAgent;
         o.ConfigureAgent = (name, a) =>

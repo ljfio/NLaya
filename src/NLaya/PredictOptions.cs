@@ -15,5 +15,6 @@ public class PredictOptions
     /// <summary>Hooks for this call only, run after installed hooks.</summary>
     public IEnumerable<ILayaHook>? Hooks { get; init; }
 
-    public bool? HooksRaise { get; init; }
+    /// <summary>For this call only: whether a failing hook throws, or is logged and skipped. Python's <c>hooks_raise</c>.</summary>
+    public bool? ThrowOnHookError { get; init; }
 }

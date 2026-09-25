@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Numerics.Tensors;
 
 using NLaya.Backends;
@@ -46,11 +45,11 @@ internal static class Decoder
                 }
                 case QuestionType.Score:
                 {
-                    var probs = new OrderedDictionary<string, double>();
+                    var probs = new double[k];
                     double expected = 0;
                     for (var i = 0; i < k; i++)
                     {
-                        probs[i.ToString(CultureInfo.InvariantCulture)] = Round(p[i]);
+                        probs[i] = Round(p[i]);
                         expected += i * (double)p[i];
                     }
                     answers[questionIds[j]] = new ScoreAnswer
@@ -69,7 +68,7 @@ internal static class Decoder
                     double pTrue = p[1];
                     answers[questionIds[j]] = new NoulAnswer
                     {
-                        Noul = Round(pTrue),
+                        Probability = Round(pTrue),
                         Confidence = Round(Math.Max(pTrue, 1.0 - pTrue)),
                         AnswerConfidence = ansConf,
                         Action = action,

@@ -96,7 +96,10 @@ var q3 = Questions.Parse("""{"refund_requested": {"type": "noul", "instructions"
 
 A repeated id in a fluent chain throws; the indexer replaces the earlier question, like a Python
 dict. Read answers with `result.Choice("id")`, `result.Score("id")`, `result.Noul("id")`, or
-`result.TryGet<NoulAnswer>("id", out var a)` when a hook may have dropped one.
+`result.TryGet<NoulAnswer>("id", out var a)` when a hook may have dropped one. A choice has
+`Choice` and `Probabilities` by label, a score has `Score` (the expected level), `Probabilities` by
+level and `MostLikelyLevel`, and a noul has `Value` and `Probability` (P(true)). `ToJson()` writes
+Python's result dict, including its fixed `"model": "laya-rl-agent"`; `result.Model` is the model id.
 
 ## Typed decisions
 
@@ -146,17 +149,18 @@ schema Python accepts, give exactly Python's questions.
 using NLaya.Routing;
 
 using var router = new Router(o => o.UseTorchSharp());
-router.Preload(["english", "multilingual"]);                       // optional: no load at request time
+router.Preload([Checkpoint.English, Checkpoint.Multilingual]);    // optional: no load at request time
 
 var r = router.Predict("二重に請求されました", Presets.Triage());  // -> multilingual (non-Latin script)
-Console.WriteLine($"{r.Routing!.Model}: {r.Routing.Reason}");
+Console.WriteLine($"{r.Routing!.Checkpoint}: {r.Routing.Reason}");
 
-router.Predict(state, questions, new RouteOptions { Task = "typed_decisions" });   // explicit checkpoint
+router.Predict(state, questions, new RouteOptions { Checkpoint = Checkpoint.TypedDecisions });  // explicit
 router.Predict(state, questions, new RouteOptions { LangGuess = s => myLid(s) });  // plug in your own language ID
 ```
 
-Routing follows the Python rules: explicit `Model`, then `Task`, then `Lang`, then `LangGuess`, then
-script and language detection (`NLaya.Lang.LanguageDetector`). `typed-decisions` is only chosen when you
+Routing follows the Python rules: an explicit `Checkpoint` (Python's `model=` and `task=`), then `Lang`,
+then `LangGuess`, then script and language detection (`NLaya.Lang.LanguageDetector`). `Checkpoints.Parse`
+reads Python's names and aliases ("english", "ml", "typed_decisions"), and `checkpoint.Name()` gives them back. `typed-decisions` is only chosen when you
 ask for it, or when `AutoTaskDetection` is on and the question ids match one of its workflows.
 Checkpoints load on first use, outside the router's lock: requests for a checkpoint that is already
 loaded keep flowing while another loads, and concurrent requests for the same one share its load.
@@ -176,7 +180,7 @@ var routed = router.PredictBatch(
 [
     new RouteRequest("I was charged twice", Presets.Triage()),
     new RouteRequest("二重に請求されました", Presets.Triage()),
-    new RouteRequest(incident, securityQuestions) { Task = "typed_decisions" },
+    new RouteRequest(incident, securityQuestions) { Checkpoint = Checkpoint.TypedDecisions },
 ]);
 ```
 
@@ -225,11 +229,14 @@ isn't AOT-compatible, so neither is this package.
 var triage = Presets.Triage();   // also Email(), Guard(), Moderation(), Router()
 var state = NLaya.Email.EmailCleaner.State(subject, rawBody, sender);   // strips quotes, signatures, disclaimers
 
-agent.AddHook(LayaHooks.OnEnd(ctx => metrics.Record(ctx.Usage, ctx.ElapsedMs)));
+agent.AddHook(LayaHooks.OnEnd(ctx => metrics.Record(ctx.Usage, ctx.Elapsed)));
+builder.Services.AddLayaHook<AuditHook>();   // with DI: every agent and router the container builds
 ```
 
 A hook implements any of `ILayaHook`'s events: `OnPredictStart` (it may rewrite the input or call
 `ctx.Skip(cached)`), `OnPredictEnd`, `OnError`, and for the Router `OnRoute`, `OnLoad` and `OnEvict`.
+A failing hook throws unless `ThrowOnHookError` is false, when it is logged and skipped. Prefer
+`AddLayaHook` over the process-wide `LayaHooks.SetDefaults` in hosted apps.
 
 ## Tracing and metrics
 
@@ -305,12 +312,12 @@ builder.Services.AddChatClient(innerClient).UseLayaGuardrail();                 
 
 - Agents and the Router are singletons, and the container disposes them. `ILayaPredictor` resolves to
   the first of `AddLaya` / `AddLayaRouter` registered.
-- Logging comes from the container's `ILoggerFactory`.
+- Logging comes from the container's `ILoggerFactory`, and hooks from `AddLayaHook<T>()` / `AddLayaHook(hook)`.
 - A hosted service loads the model at startup, so the first request doesn't pay the 1–4 s load. For the
   Router it preloads `Laya:Preload`, or its default checkpoint. Turn it off with `"Laya": { "Warmup": false }`.
 - `LayaSettings` binds from the `"Laya"` section (`"Laya:<key>"` for a keyed agent): `Model`, `Subfolder`,
   `Revision`, `CacheDir`, `Warmup`, and for the Router `MaxLoaded`, `Default`, `AutoTaskDetection`,
-  `StandaloneRepos` and `Preload`. The backend stays in code, and values set in code win.
+  `StandaloneRepos` and `Preload` (checkpoint names or aliases). The backend stays in code, and values set in code win.
 
 `samples/NLaya.WebApi` exposes `POST /triage` through the injected Router.
 
@@ -326,8 +333,11 @@ uv run --with laya --with onnx --with onnxruntime --with onnxscript \
 ```csharp
 using NLaya.Onnx;
 await using var agent = await Laya.LoadAsync("./onnx/multilingual", o => o.UseOnnx("./onnx/multilingual"));
-var router = new Router(new RouterOptions { ConfigureAgent = (name, o) => o.UseOnnx($"./onnx/{name}") });
+var router = new Router(new RouterOptions { ConfigureAgent = (checkpoint, o) => o.UseOnnx($"./onnx/{checkpoint.Name()}") });
 ```
+
+ONNX Runtime's own usage telemetry is switched off unless you set `OnnxOptions.EnableTelemetry`. Its
+upload at process exit could also crash the process on macOS (see `docs/next-steps`).
 
 ## Project layout
 

@@ -4,6 +4,7 @@ ONNX Runtime inference backend for [NLaya](https://www.nuget.org/packages/NLaya)
 `encoder.onnx` + `head.onnx` export (made with laya's `export_onnx.py`).
 
 It uses the CPU `Microsoft.ML.OnnxRuntime` package. For CUDA, add `Microsoft.ML.OnnxRuntime.Gpu` to your app.
+ONNX Runtime's usage telemetry to Microsoft is off unless you set `OnnxOptions.EnableTelemetry`.
 
 ```csharp
 await using var agent = await Laya.LoadAsync("./onnx/multilingual", o => o.UseOnnx("./onnx/multilingual"));

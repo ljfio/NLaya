@@ -23,10 +23,11 @@ public sealed class PredictContext(IList<LayaState> states, Questions questions)
     public int? HeadMaxLen { get; set; }
     public string? Lang { get; set; }
     public Usage? Usage { get; set; }
-    public double? ElapsedMs { get; set; }
+    /// <summary>Wall time of the call, set before end hooks run.</summary>
+    public TimeSpan? Elapsed { get; set; }
     public Exception? Error { get; set; }
 
-    internal double ElapsedNow() => Stopwatch.GetElapsedTime(_started).TotalMilliseconds;
+    internal TimeSpan ElapsedNow() => Stopwatch.GetElapsedTime(_started);
 
     /// <summary>From a start hook: use these results and skip inference. End hooks still run.</summary>
     public void Skip(IList<LayaResult> results) => Results = results;

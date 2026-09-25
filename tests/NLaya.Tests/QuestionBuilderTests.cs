@@ -122,14 +122,14 @@ public class QuestionBuilderTests
     {
         var answers = new OrderedDictionary<string, Answer>
         {
-            ["refund"] = new NoulAnswer { Noul = 0.9 },
+            ["refund"] = new NoulAnswer { Probability = 0.9 },
         };
-        var result = new LayaResult(LayaAgent.ResultModelName, answers, Usage.Zero);
+        var result = new LayaResult(LayaResult.PythonModelName, answers, Usage.Zero);
 
         Assert.True(result.TryGet("refund", out var a));
         Assert.IsType<NoulAnswer>(a);
         Assert.True(result.TryGet<NoulAnswer>("refund", out var noul));
-        Assert.Equal(0.9, noul.Noul);
+        Assert.Equal(0.9, noul.Probability);
         Assert.False(result.TryGet<ChoiceAnswer>("refund", out var choice));
         Assert.Null(choice);
         Assert.False(result.TryGet("missing", out _));

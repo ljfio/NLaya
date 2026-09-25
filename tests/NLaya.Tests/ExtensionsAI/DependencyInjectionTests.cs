@@ -100,12 +100,12 @@ public class DependencyInjectionTests
     [Fact]
     public void AddLayaRouter_registers_the_router_as_the_predictor()
     {
-        var loads = new List<string>();
+        var loads = new List<Checkpoint>();
         using var sp = Provider(s => s.AddLayaRouter(o => o.ConfigureAgent = (name, _) => loads.Add(name)),
-            new() { ["Laya:Default"] = "multilingual" });
+            new() { ["Laya:Default"] = "ml" });
         var router = sp.GetRequiredService<Router>();
         Assert.Same(router, sp.GetRequiredService<ILayaPredictor>());
-        Assert.Equal("multilingual", router.Default);
+        Assert.Equal(Checkpoint.Multilingual, router.Default); // aliases work in configuration
         Assert.Empty(loads); // nothing loads until first use (or warm-up)
     }
 
@@ -119,5 +119,38 @@ public class DependencyInjectionTests
         var response = await sp.GetRequiredService<IChatClient>().GetResponseAsync("x", cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(ChatFinishReason.ContentFilter, response.FinishReason);
         Assert.Single(predictor.Calls);
+    }
+
+    [Fact]
+    public void Registered_hooks_run_on_agents_and_routers_and_can_take_dependencies()
+    {
+        RequireCachedCheckpoint();
+        var log = new HookLog();
+        using var sp = Provider(s => s
+            .AddSingleton(log)
+            .AddLayaHook<LoggingHook>()
+            .AddLaya(Laya.MultilingualModel, o => o.Backend = new FakeBackendFactory())
+            .AddLayaRouter());
+
+        var agent = sp.GetRequiredService<LayaAgent>();
+        var result = agent.Predict("hello", Presets.Guard());
+        Assert.Contains(sp.GetRequiredService<Router>().Hooks, h => h is LoggingHook);
+        Assert.Equal([Laya.MultilingualModel], log.Ends);
+        Assert.Equal(Laya.MultilingualModel, result.Model);
+        Assert.Equal(LayaResult.PythonModelName, result.ToJson()["model"]!.GetValue<string>());
+    }
+
+    internal sealed class HookLog
+    {
+        public List<string?> Ends { get; } = [];
+    }
+
+    internal sealed class LoggingHook(HookLog log) : ILayaHook
+    {
+        public void OnPredictEnd(PredictContext ctx)
+        {
+            Assert.NotNull(ctx.Elapsed);
+            log.Ends.Add(ctx.Model);
+        }
     }
 }

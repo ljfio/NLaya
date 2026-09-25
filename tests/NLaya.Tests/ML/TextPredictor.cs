@@ -25,13 +25,13 @@ internal sealed class TextPredictor : ILayaPredictor
             {
                 Score = urgent ? 2 : 0,
                 Legend = [],
-                Probabilities = urgent ? new() { ["0"] = 0.1, ["1"] = 0.1, ["2"] = 0.8 } : new() { ["0"] = 0.8, ["1"] = 0.1, ["2"] = 0.1 },
+                Probabilities = urgent ? [0.1, 0.1, 0.8] : [0.8, 0.1, 0.1],
                 Confidence = 0.5,
                 AnswerConfidence = 0.8,
             },
-            ["refund"] = new NoulAnswer { Noul = p, Confidence = Math.Max(p, 1 - p), AnswerConfidence = Math.Max(p, 1 - p) },
+            ["refund"] = new NoulAnswer { Probability = p, Confidence = Math.Max(p, 1 - p), AnswerConfidence = Math.Max(p, 1 - p) },
         };
-        return new LayaResult(LayaAgent.ResultModelName, answers, new Usage(1));
+        return new LayaResult(LayaResult.PythonModelName, answers, new Usage(1));
     }
 
     public Task<LayaResult> PredictAsync(LayaState state, Questions questions, PredictOptions? options = null, CancellationToken ct = default) =>

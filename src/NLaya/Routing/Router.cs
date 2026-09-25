@@ -15,32 +15,18 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
 {
     public const string BundleRepo = "convaiinnovations/laya";
 
-    public static readonly IReadOnlyDictionary<string, CheckpointSpec> DefaultModels = new Dictionary<string, CheckpointSpec>
+    public static readonly IReadOnlyDictionary<Checkpoint, CheckpointSpec> DefaultModels = new Dictionary<Checkpoint, CheckpointSpec>
     {
-        ["english"] = new(BundleRepo),
-        ["multilingual"] = new(BundleRepo, "multilingual"),
-        ["typed-decisions"] = new(BundleRepo, "typed-decisions"),
+        [Checkpoint.English] = new(BundleRepo),
+        [Checkpoint.Multilingual] = new(BundleRepo, "multilingual"),
+        [Checkpoint.TypedDecisions] = new(BundleRepo, "typed-decisions"),
     };
 
-    public static readonly IReadOnlyDictionary<string, CheckpointSpec> StandaloneModels = new Dictionary<string, CheckpointSpec>
+    public static readonly IReadOnlyDictionary<Checkpoint, CheckpointSpec> StandaloneModels = new Dictionary<Checkpoint, CheckpointSpec>
     {
-        ["english"] = new("convaiinnovations/laya"),
-        ["multilingual"] = new("convaiinnovations/laya-multilingual"),
-        ["typed-decisions"] = new("convaiinnovations/laya-typed-decisions"),
-    };
-
-    private static readonly Dictionary<string, string> Aliases = new()
-    {
-        ["en"] = "english",
-        ["laya"] = "english",
-        ["default"] = "english",
-        ["multi"] = "multilingual",
-        ["ml"] = "multilingual",
-        ["laya-multilingual"] = "multilingual",
-        ["typed"] = "typed-decisions",
-        ["typed_decisions"] = "typed-decisions",
-        ["laya-typed-decisions"] = "typed-decisions",
-        ["decisions"] = "typed-decisions",
+        [Checkpoint.English] = new("convaiinnovations/laya"),
+        [Checkpoint.Multilingual] = new("convaiinnovations/laya-multilingual"),
+        [Checkpoint.TypedDecisions] = new("convaiinnovations/laya-typed-decisions"),
     };
 
     private static readonly (string Name, string[] Ids)[] Workflows =
@@ -52,43 +38,33 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     ];
 
     private readonly RouterOptions _o;
-    private readonly Dictionary<string, CheckpointSpec> _models;
+    private readonly Dictionary<Checkpoint, CheckpointSpec> _models;
     // A checkpoint is in _agents from the moment its load starts, and in _order once it has loaded.
-    private readonly Dictionary<string, Lazy<LayaAgent>> _agents = new();
-    private readonly HashSet<string> _attached = new();
-    private readonly List<string> _order = new(); // least recently used first
+    private readonly Dictionary<Checkpoint, Lazy<LayaAgent>> _agents = [];
+    private readonly HashSet<Checkpoint> _attached = [];
+    private readonly List<Checkpoint> _order = []; // least recently used first
     private readonly Lock _lock = new();
     private int _maxLoaded;
 
-    public Router(RouterOptions? options = null) : base((options ??= new()).Hooks, options.HooksRaise, options.Logger)
+    public Router(RouterOptions? options = null) : base((options ??= new()).Hooks, options.ThrowOnHookError, options.Logger)
     {
         _o = options;
-        _models = new Dictionary<string, CheckpointSpec>(options.StandaloneRepos ? StandaloneModels : DefaultModels);
-        foreach (var (k, v) in options.Models) _models[NormaliseName(k)] = v;
+        _models = new Dictionary<Checkpoint, CheckpointSpec>(options.StandaloneRepos ? StandaloneModels : DefaultModels);
+        foreach (var (k, v) in options.Models) _models[k] = v;
         _maxLoaded = Math.Max(1, options.MaxLoaded);
-        Default = NormaliseName(options.Default);
+        Default = options.Default;
     }
 
     /// <summary>A router whose checkpoints all load with <paramref name="configure"/>, e.g. <c>o => o.UseTorchSharp()</c>.</summary>
     public Router(Action<LayaOptions> configure) : this(new RouterOptions { ConfigureAgent = (_, o) => configure(o) }) { }
 
-    public string Default { get; }
-    public IReadOnlyDictionary<string, CheckpointSpec> Models => _models;
+    public Checkpoint Default { get; }
+    public IReadOnlyDictionary<Checkpoint, CheckpointSpec> Models => _models;
 
-    public IReadOnlyList<string> Loaded
+    /// <summary>The checkpoints loaded now, least recently used first.</summary>
+    public IReadOnlyList<Checkpoint> Loaded
     {
         get { lock (_lock) return _order.ToList(); }
-    }
-
-    /// <summary>"english", "multilingual" or "typed-decisions" for a name or alias.</summary>
-    public static string NormaliseName(string name)
-    {
-        var key = name.Trim().ToLowerInvariant();
-        key = Aliases.GetValueOrDefault(key, key);
-        if (!DefaultModels.ContainsKey(key))
-            throw new ArgumentException($"unknown model {PyStr.Repr(name)}; choose one of ['english', 'multilingual', 'typed-decisions'] " +
-                $"(or an alias: [{string.Join(", ", Aliases.Keys.Order(StringComparer.Ordinal).Select(PyStr.Repr))}])");
-        return key;
     }
 
     /// <summary>The typed-decisions workflow whose exact question-id set this is, else null.</summary>
@@ -105,9 +81,8 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     /// the router's lock: requests for checkpoints already loaded carry on, and concurrent requests for
     /// the same checkpoint share one load.
     /// </summary>
-    public LayaAgent Load(string name)
+    public LayaAgent Load(Checkpoint key)
     {
-        var key = NormaliseName(name);
         Lazy<LayaAgent> entry;
         lock (_lock)
         {
@@ -134,7 +109,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
             throw;
         }
 
-        List<string> evicted;
+        List<Checkpoint> evicted;
         lock (_lock)
         {
             // Unloaded while loading: hand the agent to this caller only. Loaded by a concurrent caller: already counted.
@@ -153,7 +128,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         return agent;
     }
 
-    private LayaAgent LoadAgent(string key)
+    private LayaAgent LoadAgent(Checkpoint key)
     {
         var spec = _models[key];
         return Laya.Load(spec.Repo, o =>
@@ -165,9 +140,9 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     }
 
     /// <summary>Register an agent you already built instead of loading a second copy.</summary>
-    public LayaAgent Attach(string name, LayaAgent agent)
+    public LayaAgent Attach(Checkpoint key, LayaAgent agent)
     {
-        var key = NormaliseName(name);
+        ArgumentNullException.ThrowIfNull(agent);
         lock (_lock)
         {
             var loaded = new Lazy<LayaAgent>(() => agent);
@@ -181,24 +156,24 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     }
 
     /// <summary>Load checkpoints up front (all of them by default) so no request pays for a load.</summary>
-    public Router Preload(IEnumerable<string>? names = null)
+    public Router Preload(IEnumerable<Checkpoint>? checkpoints = null)
     {
-        var keys = (names ?? _models.Keys).Select(NormaliseName).Distinct().ToList();
+        var keys = (checkpoints ?? _models.Keys).Distinct().ToList();
         lock (_lock) _maxLoaded = Math.Max(_maxLoaded, keys.Union(_agents.Keys).Count());
         foreach (var k in keys) Load(k);
         return this;
     }
 
-    public Task<Router> PreloadAsync(IEnumerable<string>? names = null, CancellationToken ct = default) =>
-        System.Threading.Tasks.Task.Run(() => Preload(names), ct);
+    public Task<Router> PreloadAsync(IEnumerable<Checkpoint>? checkpoints = null, CancellationToken ct = default) =>
+        Task.Run(() => Preload(checkpoints), ct);
 
     /// <summary>Drop one checkpoint, or all. Memory is reclaimed once in-flight calls finish.</summary>
-    public void Unload(string? name = null)
+    public void Unload(Checkpoint? checkpoint = null)
     {
-        List<string> freed;
+        List<Checkpoint> freed;
         lock (_lock)
         {
-            if (name is null)
+            if (checkpoint is not { } key)
             {
                 freed = _order.ToList();
                 _agents.Clear();
@@ -206,7 +181,6 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
             }
             else
             {
-                var key = NormaliseName(name);
                 freed = _agents.Remove(key) ? [key] : [];
                 _order.Remove(key);
             }
@@ -215,15 +189,15 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         Lifecycle(freed, evict: true);
     }
 
-    private void Touch(string key)
+    private void Touch(Checkpoint key)
     {
         _order.Remove(key);
         _order.Add(key);
     }
 
-    private List<string> EvictLocked()
+    private List<Checkpoint> EvictLocked()
     {
-        var evicted = new List<string>();
+        var evicted = new List<Checkpoint>();
         while (_order.Count > _maxLoaded)
         {
             var victim = _order[0];
@@ -235,12 +209,12 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         return evicted;
     }
 
-    private void Lifecycle(IEnumerable<string> names, bool evict, LayaAgent? agent = null)
+    private void Lifecycle(IEnumerable<Checkpoint> checkpoints, bool evict, LayaAgent? agent = null)
     {
-        foreach (var n in names)
+        foreach (var n in checkpoints)
         {
-            var ctx = new PredictContext([], new Questions()) { Model = n, Agent = agent, Router = this };
-            Dispatch(Compose(null), evict ? h => h.OnEvict(ctx) : h => h.OnLoad(ctx), HooksRaise, evict ? "OnEvict" : "OnLoad");
+            var ctx = new PredictContext([], new Questions()) { Model = n.Name(), Agent = agent, Router = this };
+            Dispatch(Compose(null), evict ? h => h.OnEvict(ctx) : h => h.OnLoad(ctx), ThrowOnHookError, evict ? "OnEvict" : "OnLoad");
         }
     }
 
@@ -255,55 +229,51 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
             Decision = Decide(state, questions, options),
             Router = this,
         };
-        Dispatch(Compose(options.Hooks), h => h.OnRoute(ctx), options.HooksRaise ?? HooksRaise, nameof(ILayaHook.OnRoute));
-        LayaTelemetry.Routed(ctx.Decision!.Model);
+        Dispatch(Compose(options.Hooks), h => h.OnRoute(ctx), options.ThrowOnHookError ?? ThrowOnHookError, nameof(ILayaHook.OnRoute));
+        LayaTelemetry.Routed(ctx.Decision!.Checkpoint.Name());
         return ctx.Decision;
     }
 
     private RouteDecision Decide(LayaState state, Questions? questions, RouteOptions o)
     {
-        RouteDecision To(string key, string reason, LanguageDetection? det = null, string? wf = null) =>
+        RouteDecision To(Checkpoint key, string reason, LanguageDetection? det = null, string? wf = null) =>
             new(key, _models[key].ToString(), reason, det, wf);
 
-        if (o.Model is not null) return To(NormaliseName(o.Model), $"explicit model={PyStr.Repr(o.Model)}");
-        if (o.Task is not null)
-        {
-            var key = NormaliseName(o.Task.ToLowerInvariant().Replace('-', '_') == "typed_decisions" ? "typed-decisions" : o.Task);
-            return To(key, $"explicit task={PyStr.Repr(o.Task)}");
-        }
+        if (o.Checkpoint is { } pinned) return To(pinned, $"explicit model={PyStr.Repr(pinned.Name())}");
 
         var workflow = MatchTypedDecisionsWorkflow(questions?.Keys);
         if (workflow is not null && _o.AutoTaskDetection)
-            return To("typed-decisions", $"question ids match the {PyStr.Repr(workflow)} typed-decisions workflow", null, workflow);
+            return To(Checkpoint.TypedDecisions, $"question ids match the {PyStr.Repr(workflow)} typed-decisions workflow", null, workflow);
 
         if (o.Lang is not null && EnglishFromCode(o.Lang) is { } byLang)
-            return To(byLang ? "english" : "multilingual", $"explicit lang={PyStr.Repr(o.Lang)}", null, workflow);
+            return To(byLang ? Checkpoint.English : Checkpoint.Multilingual, $"explicit lang={PyStr.Repr(o.Lang)}", null, workflow);
 
         foreach (var (source, hint) in new[] { ("lang_guess", o.LangGuess), ("Router(lang_guess=...)", _o.LangGuess) })
         {
             if (hint is not null && EnglishFromCode(hint(state)) is { } en)
-                return To(en ? "english" : "multilingual",
+                return To(en ? Checkpoint.English : Checkpoint.Multilingual,
                     $"{source}: the caller identified this as {(en ? "English" : "non-English")} text", null, workflow);
         }
 
         var det = LanguageDetector.Analyse(state);
-        string model, reason;
+        Checkpoint model;
+        string reason;
         if (det.Script == "unknown")
-            (model, reason) = (Default, $"no letters detected in state; using default ({Default})");
+            (model, reason) = (Default, $"no letters detected in state; using default ({Default.Name()})");
         else if (det.Script != "latin")
-            (model, reason) = ("multilingual",
+            (model, reason) = (Checkpoint.Multilingual,
                 $"non-Latin script ({det.Script}, {PyStr.F0(100 * det.NonLatinFraction)}% of letters); the English checkpoint cannot read it");
         else if (!det.IsEnglish)
-            (model, reason) = ("multilingual",
+            (model, reason) = (Checkpoint.Multilingual,
                 det.MixedSegment is not null
                     ? $"Latin script, mostly English, but a line or field reads as {PyStr.Repr(det.Language!)} ({PyStr.Repr(PyStr.Take(det.MixedSegment, 60))}); the English checkpoint cannot read it"
                     : det.Language is not null
                         ? $"Latin script but language looks like {PyStr.Repr(det.Language)}, not English"
                         : $"Latin script, language not identified but {PyStr.F0(100 * det.DiacriticRate)}% non-English letters; not safe for the English checkpoint");
         else if (det.LanguageUndecided)
-            (model, reason) = (Default, $"Latin script, language not identified and no non-English letters; using default ({Default})");
+            (model, reason) = (Default, $"Latin script, language not identified and no non-English letters; using default ({Default.Name()})");
         else
-            (model, reason) = ("english", "English Latin text");
+            (model, reason) = (Checkpoint.English, "English Latin text");
         return To(model, reason, det, workflow);
     }
 
@@ -325,19 +295,19 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     {
         options ??= new RouteOptions();
         var decision = Route(state, questions, options);
-        var agent = Load(decision.Model);
+        var agent = Load(decision.Checkpoint);
         var lang = options.Lang ?? decision.Detection?.Language;
         var ctx = new PredictContext([state], questions)
         {
             Decision = decision,
-            Model = decision.Model,
+            Model = decision.Checkpoint.Name(),
             Agent = agent,
             Router = this,
             MaxLen = options.MaxLen,
             HeadMaxLen = options.HeadMaxLen,
             Lang = lang,
         };
-        var results = RunWithHooks(Compose(options.Hooks), ctx, options.HooksRaise ?? HooksRaise, c =>
+        var results = RunWithHooks(Compose(options.Hooks), ctx, options.ThrowOnHookError ?? ThrowOnHookError, c =>
             [agent.Predict(c.States[0], c.Questions, new PredictOptions { Lang = c.Lang, MaxLen = c.MaxLen, HeadMaxLen = c.HeadMaxLen })]);
         return results[0].WithRouting(decision);
     }
@@ -349,7 +319,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         Predict(LayaState.From(state), questions, options);
 
     public Task<LayaResult> PredictAsync(LayaState state, Questions questions, RouteOptions? options = null, CancellationToken ct = default) =>
-        System.Threading.Tasks.Task.Run(() => Predict(state, questions, options), ct);
+        Task.Run(() => Predict(state, questions, options), ct);
 
     // ---------------------------------------------------------------- batch
 
@@ -360,7 +330,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     public IReadOnlyList<RouteDecision> RouteBatch(IEnumerable<RouteRequest> requests) =>
         RouteBatchCore(requests.ToList(), null, null);
 
-    private List<RouteDecision> RouteBatchCore(List<RouteRequest> requests, IEnumerable<ILayaHook>? hooks, bool? hooksRaise)
+    private List<RouteDecision> RouteBatchCore(List<RouteRequest> requests, IEnumerable<ILayaHook>? hooks, bool? throwOnHookError)
     {
         var decisions = new List<RouteDecision>(requests.Count);
         for (var i = 0; i < requests.Count; i++)
@@ -368,7 +338,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
             var r = requests[i] ?? throw new ArgumentException($"request {i} is null", nameof(requests));
             if (r.State is null) throw new ArgumentException($"request {i} is missing required key 'state'", nameof(requests));
             if (r.Questions is null) throw new ArgumentException($"request {i} is missing required key 'questions'", nameof(requests));
-            decisions.Add(Route(r.State, r.Questions, r.ToRouteOptions(hooks, hooksRaise)));
+            decisions.Add(Route(r.State, r.Questions, r.ToRouteOptions(hooks, throwOnHookError)));
         }
         return decisions;
     }
@@ -394,16 +364,16 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         ArgumentNullException.ThrowIfNull(requests);
         options ??= new BatchOptions();
         var reqs = requests.ToList();
-        var raise = options.HooksRaise ?? HooksRaise;
-        var decisions = RouteBatchCore(reqs, options.Hooks, options.HooksRaise);
+        var raise = options.ThrowOnHookError ?? ThrowOnHookError;
+        var decisions = RouteBatchCore(reqs, options.Hooks, options.ThrowOnHookError);
         if (decisions.Count == 0) return [];
 
         // First-appearance order keeps loads deterministic and collapses an interleaved workload to
         // one load per checkpoint for this call.
-        var groups = new OrderedDictionary<string, List<int>>(StringComparer.Ordinal);
+        var groups = new OrderedDictionary<Checkpoint, List<int>>();
         for (var i = 0; i < decisions.Count; i++)
         {
-            if (!groups.TryGetValue(decisions[i].Model, out var indices)) groups[decisions[i].Model] = indices = [];
+            if (!groups.TryGetValue(decisions[i].Checkpoint, out var indices)) groups[decisions[i].Checkpoint] = indices = [];
             indices.Add(i);
         }
 
@@ -422,7 +392,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
                     var ctx = new PredictContext([reqs[i].State], reqs[i].Questions)
                     {
                         Decision = decisions[i],
-                        Model = model,
+                        Model = model.Name(),
                         Agent = agent,
                         Router = this,
                         MaxLen = options.MaxLen,
@@ -515,7 +485,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     {
         foreach (var ctx in contexts)
         {
-            ctx.ElapsedMs = ctx.ElapsedNow();
+            ctx.Elapsed = ctx.ElapsedNow();
             if (ctx.Results is not null) ctx.Usage = Usage.Sum(ctx.Results);
         }
         Exception? first = null;
@@ -536,10 +506,10 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         PredictBatch(states.Select(s => new RouteRequest(s, questions) { Lang = options?.Lang }), options);
 
     public Task<IReadOnlyList<LayaResult>> PredictBatchAsync(IEnumerable<RouteRequest> requests, BatchOptions? options = null, CancellationToken ct = default) =>
-        System.Threading.Tasks.Task.Run(() => PredictBatch(requests, options), ct);
+        Task.Run(() => PredictBatch(requests, options), ct);
 
     public Task<IReadOnlyList<LayaResult>> PredictBatchAsync(IEnumerable<LayaState> states, Questions questions, BatchOptions? options = null, CancellationToken ct = default) =>
-        System.Threading.Tasks.Task.Run(() => PredictBatch(states, questions, options), ct);
+        Task.Run(() => PredictBatch(states, questions, options), ct);
 
     /// <summary>
     /// Stream heterogeneous requests through <see cref="PredictBatch(IEnumerable{RouteRequest}, BatchOptions?)"/>
@@ -581,7 +551,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
             MaxLen = options.MaxLen,
             HeadMaxLen = options.HeadMaxLen,
             Hooks = options.Hooks,
-            HooksRaise = options.HooksRaise,
+            ThrowOnHookError = options.ThrowOnHookError,
         },
     };
 

@@ -21,7 +21,7 @@ await using (var agent = await Laya.LoadAsync("convaiinnovations/laya-multilingu
     var sw = Stopwatch.StartNew();
     var result = agent.Predict(new { body = "मुझसे इनवॉइस 4411 के लिए दो बार शुल्क लिया गया। कृपया आज ही धनवापसी करें।" }, questions);
     Console.WriteLine($"[{agent.Backend.Name}, {sw.ElapsedMilliseconds} ms] department={result.Choice("department").Choice} " +
-                      $"refund={result.Noul("refund_requested").Noul}");
+                      $"refund={result.Noul("refund_requested").Probability}");
 }
 
 // The Router picks the checkpoint per request: English, multilingual, or typed-decisions on request.
@@ -34,11 +34,11 @@ foreach (var (label, state, options) in new (string, LayaState, RouteOptions?)[]
 {
     ("english email", email, null),
     ("japanese", "二重に請求されました。返金してください。", null),
-    ("typed-decisions", "Customer threatens to cancel after a double charge", new RouteOptions { Task = "typed_decisions" }),
+    ("typed-decisions", "Customer threatens to cancel after a double charge", new RouteOptions { Checkpoint = Checkpoint.TypedDecisions }),
 })
 {
     var sw = Stopwatch.StartNew();
     var r = router.Predict(state, triage, options);
-    Console.WriteLine($"[{r.Routing!.Model}, {sw.ElapsedMilliseconds} ms] {label}: intent={r.Choice("intent").Choice} " +
-                      $"frustration={r.Score("frustration").Score} refund={r.Noul("refund_requested").Noul} — {r.Routing.Reason}");
+    Console.WriteLine($"[{r.Routing!.Checkpoint.Name()}, {sw.ElapsedMilliseconds} ms] {label}: intent={r.Choice("intent").Choice} " +
+                      $"frustration={r.Score("frustration").Score} refund={r.Noul("refund_requested").Probability} — {r.Routing.Reason}");
 }

@@ -14,6 +14,10 @@ and layout, and `docs/next-steps/README.md` for current status, planned work and
   behaviour gets fixtures from `tools/fixtures/make_fixtures.py`, not hand-written expectations.
   Embedded tables (`lang_data.json`, `email_data.json`, `presets.json`) are generated, never edited
   by hand.
+- **Capability parity, .NET-shaped API.** Everything Python can do, NLaya can do, but the public API
+  uses .NET types (enums such as `Checkpoint`, `TimeSpan`, typed lists, DI registration). Python's
+  shapes live at the edges: `ToJson()` / `Parse` / `FromJson` (the dict formats), error and routing-reason
+  wording, and the byte-exact model input (`PythonJson`, `PyStr`, `PyValue`, internal).
 - **No downloads in the library.** Models come from `hf download` into the HF cache (`HfCache`).
 - **One type per file**, file named after the type. Match the surrounding comment style: XML docs
   on public members, short "why" comments.

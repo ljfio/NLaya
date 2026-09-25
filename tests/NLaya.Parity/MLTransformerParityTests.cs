@@ -47,7 +47,7 @@ public class MLTransformerParityTests(ParityFixture fx)
                     Assert.Equal(expected.Select(r => (float)r.Answer<ScoreAnswer>(id).Score), scored.GetColumn<float>(id));
                     break;
                 default:
-                    Assert.Equal(expected.Select(r => (float)r.Answer<NoulAnswer>(id).Noul), scored.GetColumn<float>(id + "_probability"));
+                    Assert.Equal(expected.Select(r => (float)r.Answer<NoulAnswer>(id).Probability), scored.GetColumn<float>(id + "_probability"));
                     break;
             }
         }

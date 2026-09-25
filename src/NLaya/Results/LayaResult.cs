@@ -14,7 +14,11 @@ public sealed class LayaResult
         Usage = usage;
     }
 
+    /// <summary>The model that answered: the agent's <see cref="LayaAgent.ModelId"/> (hub id or path), or whatever a hook set.</summary>
     public string Model { get; }
+
+    /// <summary>The <c>"model"</c> value Python writes in every result, whatever the checkpoint; <see cref="ToJson"/> writes it too.</summary>
+    public const string PythonModelName = "laya-rl-agent";
     public OrderedDictionary<string, Answer> Answers { get; }
     public Usage Usage { get; }
 
@@ -47,7 +51,7 @@ public sealed class LayaResult
     {
         var answers = new JsonObject();
         foreach (var (k, a) in Answers) answers[k] = a.ToJson();
-        var o = new JsonObject { ["model"] = Model, ["answers"] = answers, ["usage"] = Usage.ToJson() };
+        var o = new JsonObject { ["model"] = PythonModelName, ["answers"] = answers, ["usage"] = Usage.ToJson() };
         if (Routing is not null) o["routing"] = Routing.ToJson();
         return o;
     }

@@ -6,16 +6,16 @@ public sealed record NoulAnswer : Answer
 {
     public override QuestionType Type => QuestionType.Noul;
 
-    /// <summary>P(true).</summary>
-    public required double Noul { get; init; }
+    /// <summary>P(true). Python's <c>noul</c> field.</summary>
+    public required double Probability { get; init; }
 
-    /// <summary><see cref="Noul"/> &gt;= 0.5.</summary>
-    public bool Value => Noul >= 0.5;
+    /// <summary>The yes/no answer: <see cref="Probability"/> &gt;= 0.5.</summary>
+    public bool Value => Probability >= 0.5;
 
     public override JsonObject ToJson() => new()
     {
         ["type"] = "noul",
-        ["noul"] = Noul,
+        ["noul"] = Probability,
         ["confidence"] = Confidence,
         ["answer_confidence"] = AnswerConfidence,
         ["action"] = Action.ToJson(),

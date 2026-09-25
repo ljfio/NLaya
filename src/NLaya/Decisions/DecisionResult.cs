@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 
 using NLaya.Routing;
@@ -47,9 +48,9 @@ public class DecisionResult
         {
             probabilities[id] = answer switch
             {
-                NoulAnswer n => new() { ["false"] = Calibration.Decoder.Round(1.0 - n.Noul), ["true"] = Calibration.Decoder.Round(n.Noul) },
+                NoulAnswer n => new() { ["false"] = Calibration.Decoder.Round(1.0 - n.Probability), ["true"] = Calibration.Decoder.Round(n.Probability) },
                 ChoiceAnswer c => new(c.Probabilities),
-                ScoreAnswer s => new(s.Probabilities),
+                ScoreAnswer s => new(s.Probabilities.Select((v, i) => KeyValuePair.Create(i.ToString(CultureInfo.InvariantCulture), v))),
                 _ => new(),
             };
         }

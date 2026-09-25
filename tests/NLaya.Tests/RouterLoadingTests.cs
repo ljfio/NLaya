@@ -24,21 +24,21 @@ public class RouterLoadingTests
         RequireCachedCheckpoints();
         var factory = new GatedFactory("multilingual");
         using var router = RouterOver(factory);
-        var english = router.Load("english");
+        var english = router.Load(Checkpoint.English);
 
-        var first = Task.Run(() => router.Load("multilingual"), TestContext.Current.CancellationToken);
+        var first = Task.Run(() => router.Load(Checkpoint.Multilingual), TestContext.Current.CancellationToken);
         Assert.True(factory.Entered.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
-        var second = Task.Run(() => router.Load("multilingual"), TestContext.Current.CancellationToken);
+        var second = Task.Run(() => router.Load(Checkpoint.Multilingual), TestContext.Current.CancellationToken);
 
         // The multilingual load is parked inside the factory; english is still served, and not yet listed as loaded.
-        Assert.Same(english, router.Load("english"));
-        Assert.Equal(["english"], router.Loaded);
+        Assert.Same(english, router.Load(Checkpoint.English));
+        Assert.Equal([Checkpoint.English], router.Loaded);
 
         factory.Release.Set();
         var agents = await Task.WhenAll(first, second);
         Assert.Same(agents[0], agents[1]);
         Assert.Equal(1, factory.GatedCreates);
-        Assert.Equal(["english", "multilingual"], router.Loaded);
+        Assert.Equal([Checkpoint.English, Checkpoint.Multilingual], router.Loaded);
     }
 
     [Fact]
@@ -48,10 +48,10 @@ public class RouterLoadingTests
         var factory = new FailOnceFactory();
         using var router = RouterOver(factory);
 
-        Assert.Throws<IOException>(() => router.Load("english"));
+        Assert.Throws<IOException>(() => router.Load(Checkpoint.English));
         Assert.Empty(router.Loaded);
-        Assert.NotNull(router.Load("english"));
-        Assert.Equal(["english"], router.Loaded);
+        Assert.NotNull(router.Load(Checkpoint.English));
+        Assert.Equal([Checkpoint.English], router.Loaded);
     }
 
     /// <summary>Blocks backend creation for checkpoints whose id contains <c>gated</c> until <see cref="Release"/> is set.</summary>

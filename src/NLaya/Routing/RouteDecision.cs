@@ -5,11 +5,11 @@ using NLaya.Lang;
 namespace NLaya.Routing;
 
 /// <summary>Which checkpoint a request goes to, why, and what detection saw (Python <c>RouteDecision</c>).</summary>
-public sealed record RouteDecision(string Model, string Repo, string Reason, LanguageDetection? Detection = null, string? Workflow = null)
+public sealed record RouteDecision(Checkpoint Checkpoint, string Repo, string Reason, LanguageDetection? Detection = null, string? Workflow = null)
 {
     public JsonObject ToJson() => new()
     {
-        ["model"] = Model,
+        ["model"] = Checkpoint.Name(),
         ["repo"] = Repo,
         ["reason"] = Reason,
         ["detection"] = Detection?.ToJson(),

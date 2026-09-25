@@ -20,6 +20,10 @@ public sealed class OnnxBackend : ILayaBackend
         if (!File.Exists(enc) || !File.Exists(head))
             throw new FileNotFoundException(
                 $"ONNX model not found in '{options.ModelDir}'. Export it once with laya's laya-ts/scripts/export_onnx.py.");
+        // Before any session exists, so no telemetry events are queued for the upload at exit.
+        if (options.EnableTelemetry) OrtEnv.Instance().EnableTelemetryEvents();
+        else OrtEnv.Instance().DisableTelemetryEvents();
+
         var cuda = false;
         SessionOptions Make()
         {

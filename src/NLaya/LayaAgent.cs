@@ -14,12 +14,10 @@ namespace NLaya;
 /// </summary>
 public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyncDisposable
 {
-    public const string ResultModelName = "laya-rl-agent";
-
     private ILayaBackend? _backend;
 
     internal LayaAgent(LayaCheckpoint checkpoint, ILayaBackend backend, LayaOptions options)
-        : base(options.Hooks, options.HooksRaise, options.Logger)
+        : base(options.Hooks, options.ThrowOnHookError, options.Logger)
     {
         ModelId = checkpoint.ModelId;
         Directory = checkpoint.Directory;
@@ -58,10 +56,6 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
     public LayaResult Predict(object state, Questions questions, PredictOptions? options = null) =>
         Predict(LayaState.From(state), questions, options);
 
-    /// <summary>Alias of <see cref="Predict(LayaState, Questions, PredictOptions?)"/> (Python <c>system_one</c>).</summary>
-    public LayaResult SystemOne(LayaState state, Questions questions, PredictOptions? options = null) =>
-        Predict(state, questions, options);
-
     /// <summary>
     /// The same questions over many states, packed into shared forward passes. Results are
     /// aligned with <paramref name="states"/>.
@@ -81,7 +75,7 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
     private IList<LayaResult> PredictBatchCore(List<LayaState> states, Questions questions, PredictOptions options, int? batchSize, bool sortByLength)
     {
         var active = Compose(options.Hooks);
-        var raise = options.HooksRaise ?? HooksRaise;
+        var raise = options.ThrowOnHookError ?? ThrowOnHookError;
         var ctx = new PredictContext(states, questions)
         {
             Model = ModelId,
@@ -104,7 +98,7 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
         if (states.Count == 0) return [];
         var ids = ctx.Questions.Keys.ToList();
         if (ids.Count == 0)
-            return states.Select(_ => new LayaResult(ResultModelName, new OrderedDictionary<string, Answer>(), Usage.Zero)).ToList();
+            return states.Select(_ => new LayaResult(ModelId, new OrderedDictionary<string, Answer>(), Usage.Zero)).ToList();
 
         var questions = ids.Select(id => ctx.Questions[id]).ToList();
         for (var i = 0; i < ids.Count; i++)
@@ -149,7 +143,7 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
             var optionCounts = state.Rows.Select(r => r.Markers.Length).ToList();
             var answers = Decoder.Decode(output, act, row, ids, questions, optionCounts, Temperatures, lang);
             var tokens = batch.Lengths.Skip(row).Take(state.Rows.Count).Sum();
-            results[state.Index] = new LayaResult(ResultModelName, answers, new Usage(tokens));
+            results[state.Index] = new LayaResult(ModelId, answers, new Usage(tokens));
             row += state.Rows.Count;
         }
     }

@@ -27,7 +27,7 @@ public sealed class LayaSettings
     /// <summary>Router: see <see cref="Routing.RouterOptions.MaxLoaded"/>.</summary>
     public int? MaxLoaded { get; set; }
 
-    /// <summary>Router: see <see cref="Routing.RouterOptions.Default"/>.</summary>
+    /// <summary>Router: see <see cref="Routing.RouterOptions.Default"/>. A name or alias ("english", "ml", "typed-decisions").</summary>
     public string? Default { get; set; }
 
     /// <summary>Router: see <see cref="Routing.RouterOptions.AutoTaskDetection"/>.</summary>
@@ -36,6 +36,6 @@ public sealed class LayaSettings
     /// <summary>Router: see <see cref="Routing.RouterOptions.StandaloneRepos"/>.</summary>
     public bool? StandaloneRepos { get; set; }
 
-    /// <summary>Router: the checkpoints to load at warm-up. Just the router's default checkpoint when unset.</summary>
+    /// <summary>Router: the checkpoints (names or aliases) to load at warm-up. Just the router's default checkpoint when unset.</summary>
     public string[]? Preload { get; set; }
 }

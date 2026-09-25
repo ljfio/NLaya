@@ -32,19 +32,19 @@ internal abstract class LayaOutputColumn(string name, string questionId, DataVie
                     var labels = q.Options.Select(o => o.Key).ToArray();
                     columns.Add(new LayaOutputColumn<ReadOnlyMemory<char>>(name, id, TextDataViewType.Instance,
                         a => ((ChoiceAnswer)a).Choice.AsMemory()));
-                    columns.Add(Probabilities(name, id, labels, a => ((ChoiceAnswer)a).Probabilities));
+                    columns.Add(Probabilities(name, id, labels, (a, i) => ((ChoiceAnswer)a).Probabilities.GetValueOrDefault(labels[i])));
                     break;
                 }
                 case QuestionType.Score:
                 {
                     var levels = Enumerable.Range(0, q.Levels.Count).Select(i => i.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray();
                     columns.Add(new LayaOutputColumn<float>(name, id, NumberDataViewType.Single, a => (float)((ScoreAnswer)a).Score));
-                    columns.Add(Probabilities(name, id, levels, a => ((ScoreAnswer)a).Probabilities));
+                    columns.Add(Probabilities(name, id, levels, (a, i) => ((ScoreAnswer)a).Probabilities.ElementAtOrDefault(i)));
                     break;
                 }
                 default:
                     columns.Add(new LayaOutputColumn<bool>(name, id, BooleanDataViewType.Instance, a => ((NoulAnswer)a).Value));
-                    columns.Add(new LayaOutputColumn<float>(name + "_probability", id, NumberDataViewType.Single, a => (float)((NoulAnswer)a).Noul));
+                    columns.Add(new LayaOutputColumn<float>(name + "_probability", id, NumberDataViewType.Single, a => (float)((NoulAnswer)a).Probability));
                     break;
             }
             columns.Add(new LayaOutputColumn<float>(name + "_confidence", id, NumberDataViewType.Single, a => (float)a.AnswerConfidence));
@@ -53,7 +53,7 @@ internal abstract class LayaOutputColumn(string name, string questionId, DataVie
     }
 
     private static LayaOutputColumn<VBuffer<float>> Probabilities(string name, string id, string[] slots,
-        Func<Answer, OrderedDictionary<string, double>> probabilities)
+        Func<Answer, int, double> probability)
     {
         var slotNames = slots.Select(s => s.AsMemory()).ToArray();
         var annotations = new DataViewSchema.Annotations.Builder();
@@ -63,9 +63,8 @@ internal abstract class LayaOutputColumn(string name, string questionId, DataVie
         return new LayaOutputColumn<VBuffer<float>>(name + "_probs", id, new VectorDataViewType(NumberDataViewType.Single, slots.Length),
             a =>
             {
-                var p = probabilities(a);
                 var values = new float[slots.Length];
-                for (var i = 0; i < slots.Length; i++) values[i] = p.TryGetValue(slots[i], out var x) ? (float)x : 0f;
+                for (var i = 0; i < slots.Length; i++) values[i] = (float)probability(a, i);
                 return new VBuffer<float>(values.Length, values);
             },
             annotations.ToAnnotations());

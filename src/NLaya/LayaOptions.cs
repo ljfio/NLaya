@@ -26,7 +26,7 @@ public sealed class LayaOptions
     public IList<ILayaHook> Hooks { get; } = new List<ILayaHook>();
 
     /// <summary>When false, a failing hook logs a warning and inference continues.</summary>
-    public bool HooksRaise { get; set; } = true;
+    public bool ThrowOnHookError { get; set; } = true;
 
     public ILogger? Logger { get; set; }
 }

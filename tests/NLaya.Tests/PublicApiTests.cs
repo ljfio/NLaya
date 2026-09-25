@@ -16,14 +16,6 @@ public class PublicApiTests
     }
 
     [Fact]
-    public void SystemOne_is_Predict()
-    {
-        using var agent = FakeAgent();
-        var q = new Questions().Choice("team", "Which team?", "billing", "support");
-        Assert.Equal(agent.Predict("hi", q).ToJson().ToJsonString(), agent.SystemOne("hi", q).ToJson().ToJsonString());
-    }
-
-    [Fact]
     public void Choice_without_options_binds_to_labels_and_throws()
     {
         Assert.Throws<ArgumentException>(() => Question.Choice("Which?"));
@@ -47,7 +39,7 @@ public class PublicApiTests
         {
             Score = 1.2,
             Legend = [],
-            Probabilities = new() { ["0"] = 0.1, ["1"] = 0.6, ["2"] = 0.3 },
+            Probabilities = [0.1, 0.6, 0.3],
             Confidence = 0.5,
             AnswerConfidence = 0.5,
             Action = new ActionInfo(0.5),
@@ -97,17 +89,17 @@ public class PublicApiTests
         var factory = new FakeBackendFactory();
         using var router = new Router(new RouterOptions { StandaloneRepos = true, ConfigureAgent = (_, o) => o.Backend = factory });
 
-        Assert.Same(attached, router.Attach("multi", attached));
-        Assert.Equal(["multilingual"], router.Loaded);
+        Assert.Same(attached, router.Attach(Checkpoint.Multilingual, attached));
+        Assert.Equal([Checkpoint.Multilingual], router.Loaded);
 
         if (HfCache.Snapshot(Laya.DefaultModel) is null)
             Assert.Skip($"{Laya.DefaultModel} is not cached; run: {HfCache.DownloadCommand(Laya.DefaultModel)}");
-        await router.PreloadAsync(["english"], TestContext.Current.CancellationToken);
-        Assert.Equal(["english", "multilingual"], router.Loaded.Order());
+        await router.PreloadAsync([Checkpoint.English], TestContext.Current.CancellationToken);
+        Assert.Equal([Checkpoint.English, Checkpoint.Multilingual], router.Loaded.Order());
         Assert.Equal(1, factory.Created);
 
-        router.Unload("en");
-        Assert.Equal(["multilingual"], router.Loaded);
+        router.Unload(Checkpoint.English);
+        Assert.Equal([Checkpoint.Multilingual], router.Loaded);
         router.Unload();
         Assert.Empty(router.Loaded);
     }

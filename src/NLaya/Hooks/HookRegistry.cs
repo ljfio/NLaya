@@ -4,12 +4,12 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace NLaya;
 
 /// <summary>A hook list that can change at runtime (Python <c>HookRegistry</c>); each call reads a snapshot.</summary>
-public abstract class HookRegistry(IEnumerable<ILayaHook>? hooks, bool hooksRaise, ILogger? logger)
+public abstract class HookRegistry(IEnumerable<ILayaHook>? hooks, bool throwOnHookError, ILogger? logger)
 {
     private ILayaHook[] _hooks = hooks?.ToArray() ?? [];
 
     /// <summary>When false, a failing hook is logged as a warning and the call continues.</summary>
-    public bool HooksRaise { get; set; } = hooksRaise;
+    public bool ThrowOnHookError { get; set; } = throwOnHookError;
 
     protected ILogger Logger { get; } = logger ?? NullLogger.Instance;
 
@@ -63,7 +63,7 @@ public abstract class HookRegistry(IEnumerable<ILayaHook>? hooks, bool hooksRais
         }
         finally
         {
-            ctx.ElapsedMs = ctx.ElapsedNow();
+            ctx.Elapsed = ctx.ElapsedNow();
             if (ctx.Results is not null) ctx.Usage = Usage.Sum(ctx.Results);
             try { Dispatch(active, h => h.OnPredictEnd(ctx), raise, nameof(ILayaHook.OnPredictEnd)); }
             catch (Exception hookEx) when (ctx.Error is not null)

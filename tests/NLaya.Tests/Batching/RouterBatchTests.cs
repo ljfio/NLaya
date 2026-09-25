@@ -19,8 +19,7 @@ public class RouterBatchTests
         var guess = S("lang_guess");
         return new RouteRequest(LayaState.FromJson(r!["state"]!.DeepClone()), Questions.FromJson(r["questions"]))
         {
-            Model = S("model"),
-            Task = S("task"),
+            Checkpoint = (S("model") ?? S("task")) is { } name ? Checkpoints.Parse(name) : null,
             Lang = S("lang"),
             LangGuess = guess is null ? null : _ => guess,
         };
@@ -44,11 +43,11 @@ public class RouterBatchTests
             ConfigureAgent = (name, o) =>
             {
                 o.Backend = factory;
-                if (name == "multilingual") o.LangTemperatures["de"] = new LanguageTemperature { Temperature = [1.0, 1.0, 1.0] };
+                if (name == Checkpoint.Multilingual) o.LangTemperatures["de"] = new LanguageTemperature { Temperature = [1.0, 1.0, 1.0] };
                 if (calls is not null)
                     o.Hooks.Add(LayaHooks.OnStart(c =>
                     {
-                        lock (calls) calls.Add((name, c.States.Select(s => s.Serialize()).ToArray(), c.Questions.Keys.ToArray(), c.Lang));
+                        lock (calls) calls.Add((name.Name(), c.States.Select(s => s.Serialize()).ToArray(), c.Questions.Keys.ToArray(), c.Lang));
                     }));
                 configure?.Invoke(o);
             },
@@ -63,7 +62,7 @@ public class RouterBatchTests
         Assert.Equal(expected.Count, decisions.Count);
         for (var i = 0; i < decisions.Count; i++)
         {
-            Assert.Equal(expected[i]!["model"]!.GetValue<string>(), decisions[i].Model);
+            Assert.Equal(expected[i]!["model"]!.GetValue<string>(), decisions[i].Checkpoint.Name());
             Assert.Equal(expected[i]!["reason"]!.GetValue<string>(), decisions[i].Reason);
         }
     }
@@ -97,7 +96,7 @@ public class RouterBatchTests
             Assert.Equal(e["questions"]!.AsArray().Select(q => q!.GetValue<string>()), calls[i].Ids);
             Assert.Equal(e["lang"]?.GetValue<string>(), calls[i].Lang);
         }
-        Assert.Equal(Fixture["result_models"]!.AsArray().Select(m => m!.GetValue<string>()), results.Select(r => r.Routing!.Model));
+        Assert.Equal(Fixture["result_models"]!.AsArray().Select(m => m!.GetValue<string>()), results.Select(r => r.Routing!.Checkpoint.Name()));
         Assert.Equal(2, factory.Created);
     }
 
@@ -109,12 +108,12 @@ public class RouterBatchTests
         var requests = Requests();
 
         var streamed = await router.PredictStreamAsync(requests, new BatchOptions { BatchSize = 4 }, Ct).ToListAsync(Ct);
-        Assert.Equal(Fixture["result_models"]!.AsArray().Select(m => m!.GetValue<string>()), streamed.Select(r => r.Routing!.Model));
+        Assert.Equal(Fixture["result_models"]!.AsArray().Select(m => m!.GetValue<string>()), streamed.Select(r => r.Routing!.Checkpoint.Name()));
 
         // Through ILayaPredictor: same questions for every state, each routed on its own.
-        var states = requests.Where(r => r.Model is null && r.Lang is null && r.LangGuess is null).Select(r => r.State).ToList();
+        var states = requests.Where(r => r.Checkpoint is null && r.Lang is null && r.LangGuess is null).Select(r => r.State).ToList();
         var viaInterface = await ((ILayaPredictor)router).PredictStreamAsync(states, requests[0].Questions, new BatchOptions { BatchSize = 3 }, Ct).ToListAsync(Ct);
-        Assert.Equal(states.Select(s => router.Route(s).Model), viaInterface.Select(r => r.Routing!.Model));
+        Assert.Equal(states.Select(s => router.Route(s).Checkpoint), viaInterface.Select(r => r.Routing!.Checkpoint));
     }
 
     [Fact]
@@ -136,7 +135,7 @@ public class RouterBatchTests
         var results = router.PredictBatch([new RouteRequest("hello there, a normal request", qs), new("skip me", qs), new("rewrite me", qs)]);
 
         Assert.Equal("cached", results[1].Model);
-        Assert.Equal("english", results[1].Routing!.Model);
+        Assert.Equal(Checkpoint.English, results[1].Routing!.Checkpoint);
         Assert.Equal([["urgent"], ["other"]], calls.Select(c => c.Ids));
         Assert.Equal(["start:hello there, a normal request", "start:skip me", "start:rewrite me",
             "end:hello there, a normal request", "end:skip me", "end:rewrite me"], hook.Events);

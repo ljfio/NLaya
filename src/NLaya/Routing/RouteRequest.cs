@@ -6,11 +6,9 @@ namespace NLaya.Routing;
 /// </summary>
 public sealed record RouteRequest(LayaState State, Questions Questions)
 {
-    /// <summary>Pin a checkpoint by name or alias; see <see cref="RouteOptions.Model"/>.</summary>
-    public string? Model { get; init; }
+    /// <summary>Pin a checkpoint; see <see cref="RouteOptions.Checkpoint"/>.</summary>
+    public Checkpoint? Checkpoint { get; init; }
 
-    /// <summary>"typed_decisions" picks the typed-decisions checkpoint; see <see cref="RouteOptions.Task"/>.</summary>
-    public string? Task { get; init; }
 
     /// <summary>The request's language code: routes, and selects per-language temperatures.</summary>
     public string? Lang { get; init; }
@@ -18,13 +16,12 @@ public sealed record RouteRequest(LayaState State, Questions Questions)
     /// <summary>A language-identification hint for this request; see <see cref="RouterOptions.LangGuess"/>.</summary>
     public Func<LayaState, string?>? LangGuess { get; init; }
 
-    internal RouteOptions ToRouteOptions(IEnumerable<ILayaHook>? hooks, bool? hooksRaise) => new()
+    internal RouteOptions ToRouteOptions(IEnumerable<ILayaHook>? hooks, bool? throwOnHookError) => new()
     {
-        Model = Model,
-        Task = Task,
+        Checkpoint = Checkpoint,
         Lang = Lang,
         LangGuess = LangGuess,
         Hooks = hooks,
-        HooksRaise = hooksRaise,
+        ThrowOnHookError = throwOnHookError,
     };
 }
