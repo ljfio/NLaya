@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 
 namespace NLaya;
@@ -30,11 +31,12 @@ public sealed class Questions : OrderedDictionary<string, Question>
     }
 
     /// <summary>Add a choice between labels, each with an optional description.</summary>
-    public Questions Choice(string id, string instructions, params (string Label, string? Description)[] options) =>
+    public Questions Choice(string id, string instructions, params IEnumerable<(string Label, string? Description)> options) =>
         With(id, Question.Choice(instructions, options));
 
     /// <summary>Add a choice between bare labels.</summary>
-    public Questions Choice(string id, string instructions, params string[] labels) =>
+    [OverloadResolutionPriority(1)]
+    public Questions Choice(string id, string instructions, params IEnumerable<string> labels) =>
         With(id, Question.Choice(instructions, labels));
 
     /// <summary>Add a choice whose options are added by <paramref name="configure"/>, e.g. in a loop.</summary>
@@ -47,7 +49,7 @@ public sealed class Questions : OrderedDictionary<string, Question>
     }
 
     /// <summary>Add an ordinal score; <paramref name="levels"/> are described from level 0 up.</summary>
-    public Questions Score(string id, string instructions, params string[] levels) =>
+    public Questions Score(string id, string instructions, params IEnumerable<string> levels) =>
         With(id, Question.Score(instructions, levels));
 
     /// <summary>Add an ordinal score whose levels are added by <paramref name="configure"/>, lowest first.</summary>

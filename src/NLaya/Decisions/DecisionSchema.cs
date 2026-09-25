@@ -82,7 +82,7 @@ public class DecisionSchema
     [RequiresDynamicCode(ReflectionMessage)]
     public static DecisionSchema<T> For<T>(JsonSerializerOptions? options = null)
     {
-        options ??= LazyInitializer.EnsureInitialized(ref _reflectionOptions, () =>
+        options ??= LazyInitializer.EnsureInitialized(ref s_reflectionOptions, () =>
         {
             var o = new JsonSerializerOptions { TypeInfoResolver = new DefaultJsonTypeInfoResolver(), Converters = { new JsonStringEnumConverter() } };
             o.MakeReadOnly();
@@ -91,7 +91,7 @@ public class DecisionSchema
         return For((JsonTypeInfo<T>)options.GetTypeInfo(typeof(T)));
     }
 
-    private static JsonSerializerOptions? _reflectionOptions;
+    private static JsonSerializerOptions? s_reflectionOptions;
 
     internal const string ReflectionMessage =
         "Reads T's properties with reflection. Pass a JsonTypeInfo<T> from a JsonSerializerContext for trimmed or native AOT apps.";

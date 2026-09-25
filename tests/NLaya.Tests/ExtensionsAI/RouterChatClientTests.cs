@@ -4,7 +4,7 @@ using NLaya.Extensions.AI;
 
 namespace NLaya.Tests.ExtensionsAI;
 
-public class RouterChatClientTests
+public sealed class RouterChatClientTests : IDisposable
 {
     private readonly EchoChatClient _simple = new("simple");
     private readonly EchoChatClient _complex = new("complex");
@@ -24,6 +24,12 @@ public class RouterChatClientTests
         };
         configure?.Invoke(options);
         return new LayaRouterChatClient(predictor, options);
+    }
+
+    public void Dispose()
+    {
+        _simple.Dispose();
+        _complex.Dispose();
     }
 
     [Fact]

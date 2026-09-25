@@ -40,23 +40,24 @@ public sealed class OnnxBackend : ILayaBackend
         Name = cuda ? "onnx:cuda" : "onnx:cpu";
     }
 
-    public BackendOutput Run(EncodedBatch b)
+    public BackendOutput Run(EncodedBatch batch)
     {
-        long[] seq = [b.Rows, b.SeqLen], markers = [b.Rows, b.MaxMarkers];
-        using var ids = OrtValue.CreateTensorValueFromMemory(b.InputIds, seq);
-        using var att = OrtValue.CreateTensorValueFromMemory(b.AttentionMask, seq);
-        using var encOut = _encoder.Run(new RunOptions(), ["input_ids", "attention_mask"], [ids, att], ["last_hidden_state"]);
+        using var run = new RunOptions();
+        long[] seq = [batch.Rows, batch.SeqLen], markers = [batch.Rows, batch.MaxMarkers];
+        using var ids = OrtValue.CreateTensorValueFromMemory(batch.InputIds, seq);
+        using var att = OrtValue.CreateTensorValueFromMemory(batch.AttentionMask, seq);
+        using var encOut = _encoder.Run(run, ["input_ids", "attention_mask"], [ids, att], ["last_hidden_state"]);
 
-        using var pos = OrtValue.CreateTensorValueFromMemory(b.MarkerPos, markers);
-        using var mask = OrtValue.CreateTensorValueFromMemory(b.MarkerMask, markers);
-        using var qt = OrtValue.CreateTensorValueFromMemory(b.QType, _qtypeIs2D ? [b.Rows, 1] : [b.Rows]);
-        using var headOut = _head.Run(new RunOptions(),
+        using var pos = OrtValue.CreateTensorValueFromMemory(batch.MarkerPos, markers);
+        using var mask = OrtValue.CreateTensorValueFromMemory(batch.MarkerMask, markers);
+        using var qt = OrtValue.CreateTensorValueFromMemory(batch.QType, _qtypeIs2D ? [batch.Rows, 1] : [batch.Rows]);
+        using var headOut = _head.Run(run,
             ["hidden_states", "marker_pos", "marker_mask", "qtype", "attention_mask"], [encOut[0], pos, mask, qt, att],
             ["logits", "act_logits"]);
 
         var act = headOut[1];
         return new BackendOutput(headOut[0].GetTensorDataAsSpan<float>().ToArray(), act.GetTensorDataAsSpan<float>().ToArray(),
-            b.Rows, b.MaxMarkers, (int)act.GetTensorTypeAndShape().Shape[1]);
+            batch.Rows, batch.MaxMarkers, (int)act.GetTensorTypeAndShape().Shape[1]);
     }
 
     public void Dispose()

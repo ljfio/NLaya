@@ -12,17 +12,27 @@ namespace NLaya.Lang;
 /// (<c>lang_data.json</c>). Script detection is exact; the Latin-script language guess is a
 /// best-effort stopword/diacritic heuristic.
 /// </summary>
-public static class LanguageDetector
+public static partial class LanguageDetector
 {
     private static readonly LanguageData D = LanguageData.Load();
 
     // Python's \w is alphanumerics + '_' (no combining marks); these classes spell that out for .NET.
     private const string W = @"[\p{L}\p{N}_]";
-    private static readonly Regex Word = new(@"[\p{L}\p{Nl}\p{No}]+", RegexOptions.Compiled);
-    private static readonly Regex Identifier = new($@"(?<![\p{{L}}\p{{N}}_-])[\p{{L}}\p{{N}}_-]*(?:[.@][\p{{L}}\p{{N}}_-]+)+", RegexOptions.Compiled);
-    private static readonly Regex CodeLine = new($@"[=;{{}}\[\]]|{W}\(", RegexOptions.Compiled);
-    private static readonly Regex Joined = new(@"[\p{L}\p{N}][._/\\][\p{L}\p{N}]", RegexOptions.Compiled);
-    private static readonly Regex LetterRun = new(@"[\p{L}\p{Nl}\p{No}]{2,}", RegexOptions.Compiled);
+
+    [GeneratedRegex(@"[\p{L}\p{Nl}\p{No}]+")]
+    private static partial Regex Word { get; }
+
+    [GeneratedRegex(@"(?<![\p{L}\p{N}_-])[\p{L}\p{N}_-]*(?:[.@][\p{L}\p{N}_-]+)+")]
+    private static partial Regex Identifier { get; }
+
+    [GeneratedRegex(@"[=;{}\[\]]|" + W + @"\(")]
+    private static partial Regex CodeLine { get; }
+
+    [GeneratedRegex(@"[\p{L}\p{N}][._/\\][\p{L}\p{N}]")]
+    private static partial Regex Joined { get; }
+
+    [GeneratedRegex(@"[\p{L}\p{Nl}\p{No}]{2,}")]
+    private static partial Regex LetterRun { get; }
 
     public static LanguageDetection Analyse(LayaState? state) => Analyse(Leaves(state));
 
@@ -232,7 +242,7 @@ public static class LanguageDetector
 
     private static bool IsAllUpper(string s) => s.Any(char.IsUpper) && !s.Any(char.IsLower);
 
-    private static IEnumerable<Rune> Runes(string s) => s.EnumerateRunes();
+    private static StringRuneEnumerator Runes(string s) => s.EnumerateRunes();
     private static int CpLen(string s) => PyStr.Len(s);
     private static string CpTake(string s, int n) => PyStr.Take(s, n);
 }

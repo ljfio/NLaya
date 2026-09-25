@@ -97,7 +97,10 @@ public class DecideTests
         ["Team"] = FakePredictor.Choice("other_team"),
         ["Urgency"] = new ScoreAnswer
         {
-            Score = 1.1, Legend = [], Confidence = 0.4, AnswerConfidence = 0.7,
+            Score = 1.1,
+            Legend = [],
+            Confidence = 0.4,
+            AnswerConfidence = 0.7,
             Probabilities = new() { ["0"] = 0.1, ["1"] = 0.7, ["2"] = 0.2 },
         },
         ["NeedsHuman"] = FakePredictor.Noul(0.8),

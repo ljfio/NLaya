@@ -36,7 +36,7 @@ public sealed class TorchSharpBackend : ILayaBackend
             }
             catch (Exception e) when (device.type != DeviceType.CPU && e is not IOException and not InvalidDataException)
             {
-                _log.LogWarning(e, "laya: could not place the model on {Device}, so it is running on CPU. Reason: {Reason}", device, e.Message);
+                _log.DeviceFallback(e, device.ToString(), e.Message);
                 device = CPU;
                 dtype = ScalarType.Float32;
                 weights = SafeTensors.Load(checkpoint.WeightsPath, dtype, device);
@@ -54,12 +54,12 @@ public sealed class TorchSharpBackend : ILayaBackend
         if (spec == "auto") return cuda.is_available() ? CUDA : CPU;
         if (spec.StartsWith("cuda", StringComparison.Ordinal) && !cuda.is_available())
         {
-            _log.LogWarning("laya: CUDA requested but not available. Falling back to CPU.");
+            _log.DeviceUnavailable("CUDA");
             return CPU;
         }
         if (spec == "mps" && !mps_is_available())
         {
-            _log.LogWarning("laya: MPS requested but not available. Falling back to CPU.");
+            _log.DeviceUnavailable("MPS");
             return CPU;
         }
         return torch.device(spec);

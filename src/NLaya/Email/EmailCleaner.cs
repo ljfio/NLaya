@@ -8,13 +8,19 @@ namespace NLaya.Email;
 /// model reads only the new message. Port of <c>laya.email</c>; its patterns (English, Portuguese,
 /// Spanish clients) are embedded from the Python module.
 /// </summary>
-public static class EmailCleaner
+public static partial class EmailCleaner
 {
     private static readonly Regex[] QuoteHeaders, SignatureMarkers;
     private static readonly Regex AttributionTail, AttributionHead, HeaderFromName, HeaderNext, DeviceFooter, Disclaimer;
-    private static readonly Regex Sentence = new(@"(?<=[.!?])\s+", RegexOptions.Compiled);
-    private static readonly Regex ParagraphBreak = new(@"\n\s*\n", RegexOptions.Compiled);
-    private static readonly Regex Blanks = new(@"[ \t]+", RegexOptions.Compiled);
+
+    [GeneratedRegex(@"(?<=[.!?])\s+")]
+    private static partial Regex Sentence { get; }
+
+    [GeneratedRegex(@"\n\s*\n")]
+    private static partial Regex ParagraphBreak { get; }
+
+    [GeneratedRegex(@"[ \t]+")]
+    private static partial Regex Blanks { get; }
 
     static EmailCleaner()
     {
@@ -93,7 +99,7 @@ public static class EmailCleaner
     }
 
     /// <summary>Split a boilerplate sentence at lines that start a new (uppercase) sentence.</summary>
-    private static IEnumerable<string> SplitFusedLines(string sentence)
+    private static List<string> SplitFusedLines(string sentence)
     {
         if (!sentence.Contains('\n')) return [sentence];
         var pieces = new List<string>();

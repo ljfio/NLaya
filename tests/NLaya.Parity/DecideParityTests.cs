@@ -43,9 +43,9 @@ public class DecideParityTests(ParityFixture fx)
         var agent = fx.Agent(backend, model);
         var ticket = agent.Decide(LayaState.FromJson(c["state"]?.DeepClone()), DecideContext.Default.DecideTicket);
         var want = c["details"]!["values"]!;
-        Assert.Equal(want["department"]!.GetValue<string>(), ticket.department.ToString());
-        Assert.Equal(want["urgency"]!.GetValue<int>(), ticket.urgency);
-        Assert.Equal(want["refund_requested"]!.GetValue<bool>(), ticket.refund_requested);
-        Assert.Equal(want["needs_human"]!.GetValue<bool>(), ticket.needs_human);
+        Assert.Equal(want["department"]!.GetValue<string>(), ticket.Department.ToString());
+        Assert.Equal(want["urgency"]!.GetValue<int>(), ticket.Urgency);
+        Assert.Equal(want["refund_requested"]!.GetValue<bool>(), ticket.RefundRequested);
+        Assert.Equal(want["needs_human"]!.GetValue<bool>(), ticket.NeedsHuman);
     }
 }

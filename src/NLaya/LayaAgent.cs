@@ -1,7 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 
-using Microsoft.Extensions.Logging;
-
 using NLaya.Backends;
 using NLaya.Calibration;
 using NLaya.Config;
@@ -32,10 +30,7 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
         Temperatures = new TemperatureTable(Config.Temperature, Config.TemperatureByOptions,
             options.LangTemperatures.ToDictionary(kv => kv.Key, kv => kv.Value));
         if (Temperatures.Rejected.Count > 0)
-            Logger.LogWarning(
-                "laya: this checkpoint ships invalid temperatures or values outside [{Min}, {Max}]; using {Values}. " +
-                "Treat confidence from the affected entries as uncalibrated.",
-                TemperatureTable.Min, TemperatureTable.Max, string.Join(", ", Temperatures.Rejected));
+            Logger.InvalidTemperatures(TemperatureTable.Min, TemperatureTable.Max, string.Join(", ", Temperatures.Rejected));
     }
 
     /// <summary>The Hub id or local path this agent was loaded from.</summary>
@@ -121,11 +116,19 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
         var sort = sortByLength && perPass > 1 && perPass < states.Count;
         var window = sort ? perPass * 8 : perPass; // bounds how many tokenized states are held at once
 
+        var encodedQuestions = new EncodedQuestion[questions.Count];
+        for (var i = 0; i < questions.Count; i++)
+        {
+            encodedQuestions[i] = SequenceBuilder.EncodeQuestion(Tokenizer, questions[i], headMaxLen);
+            if (encodedQuestions[i].Markers.Count(m => m < maxLen) != questions[i].OptionCount)
+                throw new ArgumentException($"question '{ids[i]}' options exceed head_max_len={headMaxLen}");
+        }
+
         var results = new LayaResult[states.Count];
         for (var start = 0; start < states.Count; start += window)
         {
             var encoded = Enumerable.Range(start, Math.Min(window, states.Count - start))
-                .Select(i => new EncodedState(i, EncodeState(states[i], ids, questions, maxLen, headMaxLen)))
+                .Select(i => new EncodedState(i, EncodeState(states[i], encodedQuestions, maxLen)))
                 .ToList();
             if (sort) encoded = encoded.OrderBy(e => e.Rows.Max(r => r.Ids.Length)).ToList(); // stable
             foreach (var pass in encoded.Chunk(perPass))
@@ -152,17 +155,12 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
     }
 
     /// <summary>One sequence per question for <paramref name="state"/>, sharing a single tokenization of it.</summary>
-    private List<EncodedItem> EncodeState(LayaState state, List<string> ids, List<Question> questions, int maxLen, int headMaxLen)
+    private List<EncodedItem> EncodeState(LayaState state, EncodedQuestion[] questions, int maxLen)
     {
         var stateIds = SequenceBuilder.EncodeState(Tokenizer, state);
-        var rows = new List<EncodedItem>(questions.Count);
-        for (var i = 0; i < questions.Count; i++)
-        {
-            var row = SequenceBuilder.Build(Tokenizer, stateIds, questions[i], maxLen, headMaxLen, state.IsConversation);
-            if (row.Markers.Length != questions[i].OptionCount)
-                throw new ArgumentException($"question '{ids[i]}' options exceed head_max_len={headMaxLen}");
-            rows.Add(row);
-        }
+        var rows = new List<EncodedItem>(questions.Length);
+        foreach (var q in questions)
+            rows.Add(SequenceBuilder.Assemble(Tokenizer, q, stateIds, maxLen, state.IsConversation));
         return rows;
     }
 

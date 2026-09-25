@@ -115,8 +115,11 @@ done
 - **zsh doesn't word-split** `${x:+--flag $y}`, so pass separate arguments.
 - **xUnit v3 on the Microsoft Testing Platform.** `global.json` sets the test runner, so use
   `dotnet test --project <proj>`.
-- **Exit crash, seen once.** A parity run with both libtorch and ONNX Runtime loaded crashed at
-  process exit (`recursive_mutex lock failed`, exit code 134). It hasn't been reproduced.
+- **Exit crash, seen twice, not reproducible.** Parity runs with both libtorch and ONNX Runtime loaded
+  crashed at process exit (`recursive_mutex lock failed`, exit code 134) twice. 15 later runs on macOS
+  (12 of the Decide tests, 3 of the full suite, September 2026) exited cleanly. Results are
+  unaffected: it happens after the tests finish. If it returns, suspect native static destructors
+  racing ONNX Runtime's or libtorch's thread pools at `exit()`.
 - **The Router uses the bundle repo.** Its default is `convaiinnovations/laya` with subfolders, as
   in Python. The bundle's `multilingual/` is a separate 680 MB copy from the standalone repo.
 - **Evicted agents aren't disposed.** When the Router evicts an agent, it drops the reference and

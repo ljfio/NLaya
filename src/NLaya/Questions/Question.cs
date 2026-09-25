@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -71,24 +72,20 @@ public sealed class Question
             null, null, null));
 
     /// <summary>A choice between bare labels.</summary>
-    public static Question Choice(string instructions, IEnumerable<string> labels) =>
+    /// <remarks>Preferred over the tuple overload so that <c>Choice("...")</c> binds here (and throws: a choice needs options).</remarks>
+    [OverloadResolutionPriority(1)]
+    public static Question Choice(string instructions, params IEnumerable<string> labels) =>
         Checked(new Question(QuestionType.Choice, instructions,
             labels.Select(l => new KeyValuePair<string, JsonNode?>(l, null)).ToList(), null, null, null));
 
-    /// <summary>A choice between bare labels.</summary>
-    public static Question Choice(string instructions, params string[] labels) => Choice(instructions, (IEnumerable<string>)labels);
-
     /// <summary>A choice between labels, each with an optional description: <c>("refund", "money back"), ("other", null)</c>.</summary>
-    public static Question Choice(string instructions, params (string Label, string? Description)[] options) =>
+    public static Question Choice(string instructions, params IEnumerable<(string Label, string? Description)> options) =>
         Choice(instructions, options.Select(o => new KeyValuePair<string, string?>(o.Label, o.Description)));
 
     /// <summary>An ordinal score; <paramref name="levels"/> are described from index 0 up.</summary>
-    public static Question Score(string instructions, IEnumerable<string> levels) =>
+    public static Question Score(string instructions, params IEnumerable<string> levels) =>
         Checked(new Question(QuestionType.Score, instructions, null,
             levels.Select(l => (JsonNode?)JsonValue.Create(l)).ToList(), null, null));
-
-    /// <summary>An ordinal score; <paramref name="levels"/> are described from index 0 up.</summary>
-    public static Question Score(string instructions, params string[] levels) => Score(instructions, (IEnumerable<string>)levels);
 
     /// <summary>A yes/no statement. Descriptions and labels are optional.</summary>
     public static Question Noul(string instructions, string? whenTrue = null, string? whenFalse = null, NoulLabels? labels = null)

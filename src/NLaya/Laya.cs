@@ -19,8 +19,15 @@ public static class Laya
     /// await using var agent = await Laya.LoadAsync("convaiinnovations/laya-multilingual", o => o.UseTorchSharp());
     /// </code>
     /// </summary>
-    public static async Task<LayaAgent> LoadAsync(string modelIdOrPath = DefaultModel, Action<LayaOptions>? configure = null,
-        CancellationToken ct = default)
+    public static Task<LayaAgent> LoadAsync(string modelIdOrPath = DefaultModel, Action<LayaOptions>? configure = null,
+        CancellationToken ct = default) =>
+        Task.Run(() => LoadCore(modelIdOrPath, configure, ct), ct);
+
+    /// <summary>Synchronous <see cref="LoadAsync"/>: reads the checkpoint and builds the backend on the calling thread.</summary>
+    public static LayaAgent Load(string modelIdOrPath = DefaultModel, Action<LayaOptions>? configure = null) =>
+        LoadCore(modelIdOrPath, configure, CancellationToken.None);
+
+    private static LayaAgent LoadCore(string modelIdOrPath, Action<LayaOptions>? configure, CancellationToken ct)
     {
         var options = new LayaOptions();
         configure?.Invoke(options);
@@ -28,14 +35,10 @@ public static class Laya
             "No inference backend configured. Add NLaya.TorchSharp and call o.UseTorchSharp(), " +
             "or add NLaya.Onnx and call o.UseOnnx(dir).");
         var dir = Resolve(modelIdOrPath, options, factory.RequiredFiles);
-        var checkpoint = await Task.Run(() => ReadCheckpoint(modelIdOrPath, dir), ct).ConfigureAwait(false);
-        var backend = await Task.Run(() => factory.Create(checkpoint), ct).ConfigureAwait(false);
-        return new LayaAgent(checkpoint, backend, options);
+        var checkpoint = ReadCheckpoint(modelIdOrPath, dir);
+        ct.ThrowIfCancellationRequested(); // before the expensive part: building the backend loads the weights
+        return new LayaAgent(checkpoint, factory.Create(checkpoint), options);
     }
-
-    /// <summary>Synchronous <see cref="LoadAsync"/>.</summary>
-    public static LayaAgent Load(string modelIdOrPath = DefaultModel, Action<LayaOptions>? configure = null) =>
-        LoadAsync(modelIdOrPath, configure).GetAwaiter().GetResult();
 
     /// <summary>A local directory, or a Hub id looked up in the Hugging Face cache (see <see cref="HfCache"/>).</summary>
     internal static string Resolve(string modelIdOrPath, LayaOptions options, IReadOnlyList<string> requiredFiles)

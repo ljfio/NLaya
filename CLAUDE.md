@@ -18,6 +18,21 @@ and layout, and `docs/next-steps/README.md` for current status, planned work and
 - **One type per file**, file named after the type. Match the surrounding comment style: XML docs
   on public members, short "why" comments.
 
+## Conventions
+
+`.editorconfig` is the style guide and the build enforces it: with `TreatWarningsAsErrors`, formatting
+(IDE0055), unused usings, private members and parameters, naming, and the `latest-recommended` .NET
+analyzers all fail the build. `dotnet format NLaya.slnx` fixes most findings; CI checks
+`dotnet format whitespace` and `style` with `--verify-no-changes`. Opt-outs live in `.editorconfig` with a reason (for example CA1308, since laya
+lower-cases for parity). Prefer fixing over suppressing; suppress locally with a justification only
+when the rule is wrong for that line.
+
+- File-scoped namespaces; one namespace per public area (`NLaya`, `NLaya.Routing`, ...), not per folder.
+- `_camelCase` private fields, `s_camelCase` private static mutable fields, PascalCase everything else.
+- Libraries `ConfigureAwait(false)` (CA2007); log through `[LoggerMessage]` methods (`LayaLog`); fixed
+  regexes use `[GeneratedRegex]`.
+- LF line endings (`.gitattributes`), final newline, no trailing whitespace.
+
 ## Build and test
 
 ```bash

@@ -30,14 +30,14 @@ public abstract class HookRegistry(IEnumerable<ILayaHook>? hooks, bool hooksRais
 
     internal ILayaHook[] Compose(IEnumerable<ILayaHook>? perCall) => [.. LayaHooks.Defaults, .. Hooks, .. perCall ?? []];
 
-    internal void Dispatch(IEnumerable<ILayaHook> hooks, Action<ILayaHook> evt, PredictContext ctx, bool raise, string name)
+    internal void Dispatch(IEnumerable<ILayaHook> hooks, Action<ILayaHook> evt, bool raise, string name)
     {
         foreach (var hook in hooks)
         {
             try { evt(hook); }
             catch (Exception ex) when (!raise)
             {
-                Logger.LogWarning(ex, "laya: hook {Hook}.{Event} failed: {Message}", hook.GetType().Name, name, ex.Message);
+                Logger.HookFailed(ex, hook.GetType().Name, name, ex.Message);
             }
         }
     }
@@ -51,24 +51,24 @@ public abstract class HookRegistry(IEnumerable<ILayaHook>? hooks, bool hooksRais
     {
         try
         {
-            Dispatch(active, h => h.OnPredictStart(ctx), ctx, raise, nameof(ILayaHook.OnPredictStart));
+            Dispatch(active, h => h.OnPredictStart(ctx), raise, nameof(ILayaHook.OnPredictStart));
             ctx.Results ??= body(ctx);
         }
         catch (Exception ex)
         {
             ctx.Error = ex;
-            try { Dispatch(active, h => h.OnError(ctx), ctx, raise, nameof(ILayaHook.OnError)); }
-            catch (Exception hookEx) { Logger.LogWarning(hookEx, "laya: an error hook failed while handling {Error}", ex.GetType().Name); }
+            try { Dispatch(active, h => h.OnError(ctx), raise, nameof(ILayaHook.OnError)); }
+            catch (Exception hookEx) { Logger.ErrorHookFailed(hookEx, ex.GetType().Name); }
             throw;
         }
         finally
         {
             ctx.ElapsedMs = ctx.ElapsedNow();
             if (ctx.Results is not null) ctx.Usage = Usage.Sum(ctx.Results);
-            try { Dispatch(active, h => h.OnPredictEnd(ctx), ctx, raise, nameof(ILayaHook.OnPredictEnd)); }
+            try { Dispatch(active, h => h.OnPredictEnd(ctx), raise, nameof(ILayaHook.OnPredictEnd)); }
             catch (Exception hookEx) when (ctx.Error is not null)
             {
-                Logger.LogWarning(hookEx, "laya: an end hook failed while handling {Error}", ctx.Error.GetType().Name);
+                Logger.EndHookFailed(hookEx, ctx.Error.GetType().Name);
             }
         }
         return ctx.Results!;

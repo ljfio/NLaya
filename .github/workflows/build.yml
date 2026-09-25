@@ -51,6 +51,14 @@ jobs:
             uvx --from huggingface_hub hf download "$repo" --include "tokenizer/*" --include rl_agent_config.json --include encoder/config.json
           done
 
+      # Formatting and style are also build errors (.editorconfig); this names the fix: `dotnet format NLaya.slnx`.
+      # (Analyzers are left to the build: `dotnet format analyzers` skips source generators.)
+      - name: Check formatting
+        if: runner.os == 'Linux'
+        run: |
+          dotnet format whitespace NLaya.slnx --verify-no-changes
+          dotnet format style NLaya.slnx --verify-no-changes
+
       - run: dotnet build NLaya.slnx -c Release
 
       - run: dotnet test --project tests/NLaya.Tests -c Release --no-build

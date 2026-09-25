@@ -131,7 +131,7 @@ public class ModelParityTests(ParityFixture fx)
                 var e = Number(ev);
                 var a = Number(actual!);
                 // input_tokens must match exactly; probabilities within tolerance.
-                Assert.True(Math.Abs(e - a) <= (path.EndsWith("input_tokens") ? 0 : ProbTol), $"{path}: expected {e}, got {a}");
+                Assert.True(Math.Abs(e - a) <= (path.EndsWith("input_tokens", StringComparison.Ordinal) ? 0 : ProbTol), $"{path}: expected {e}, got {a}");
                 break;
             }
             default:

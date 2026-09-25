@@ -1,0 +1,2 @@
+# LF everywhere (matches .editorconfig); binary detection is automatic.
+* text=auto eol=lf

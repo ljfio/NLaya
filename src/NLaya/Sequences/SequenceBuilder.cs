@@ -15,7 +15,11 @@ public static class SequenceBuilder
     public static int[] EncodeState(LayaTokenizer tok, LayaState state) =>
         tok.Encode(state.Serialize().Replace(tok.MaskToken, " ", StringComparison.Ordinal));
 
-    public static EncodedItem Build(LayaTokenizer tok, int[] stateIds, Question q, int maxLen, int headMaxLen, bool truncateLeft)
+    public static EncodedItem Build(LayaTokenizer tok, int[] stateIds, Question q, int maxLen, int headMaxLen, bool truncateLeft) =>
+        Assemble(tok, EncodeQuestion(tok, q, headMaxLen), stateIds, maxLen, truncateLeft);
+
+    /// <summary>The question's half of the row; it doesn't depend on the state, so batches encode it once.</summary>
+    internal static EncodedQuestion EncodeQuestion(LayaTokenizer tok, Question q, int headMaxLen)
     {
         var mask = tok.MaskToken;
         var opts = q.RenderOptions();
@@ -43,26 +47,36 @@ public static class SequenceBuilder
         }
         var headLen = Math.Min(headIds.Length, Math.Max(8, optBudget));
 
-        var ids = new List<int>(Math.Min(maxLen, headLen + stateIds.Length + 256)) { tok.ClsId };
-        ids.AddRange(headIds.AsSpan(0, headLen));
-        ids.Add(tok.SepId);
-        var markers = new List<int>(optIds.Count);
-        foreach (var o in optIds)
+        var prefix = new List<int>(headLen + optIds.Sum(o => o.Length) + 3) { tok.ClsId };
+        prefix.AddRange(headIds.AsSpan(0, headLen));
+        prefix.Add(tok.SepId);
+        var markers = new int[optIds.Count];
+        for (var i = 0; i < optIds.Count; i++)
         {
-            markers.Add(ids.Count);
-            ids.AddRange(o);
+            markers[i] = prefix.Count;
+            prefix.AddRange(optIds[i]);
         }
-        ids.Add(tok.SepId);
+        prefix.Add(tok.SepId);
+        return new EncodedQuestion(prefix.ToArray(), markers, q.Type);
+    }
 
-        var room = Math.Max(0, maxLen - ids.Count - 1);
-        var take = Math.Min(room, stateIds.Length);
+    /// <summary><c>prefix state [SEP]</c>, cut to <paramref name="maxLen"/>; markers past the cut are dropped.</summary>
+    internal static EncodedItem Assemble(LayaTokenizer tok, EncodedQuestion q, int[] stateIds, int maxLen, bool truncateLeft)
+    {
+        var prefix = q.Prefix;
+        var take = Math.Min(Math.Max(0, maxLen - prefix.Length - 1), stateIds.Length);
         // Conversations keep their newest (last) turns; everything else keeps its beginning.
         var from = truncateLeft ? stateIds.Length - take : 0;
-        ids.AddRange(stateIds.AsSpan(from, take));
-        ids.Add(tok.SepId);
 
-        var outIds = ids.Count > maxLen ? ids.GetRange(0, maxLen).ToArray() : ids.ToArray();
-        return new EncodedItem(outIds, markers.Where(m => m < maxLen).ToArray(), q.Type);
+        var ids = new int[Math.Min(maxLen, prefix.Length + take + 1)];
+        prefix.AsSpan(0, Math.Min(prefix.Length, ids.Length)).CopyTo(ids);
+        if (ids.Length > prefix.Length)
+        {
+            stateIds.AsSpan(from, take).CopyTo(ids.AsSpan(prefix.Length));
+            ids[^1] = tok.SepId;
+        }
+        var markers = q.Markers.Length > 0 && q.Markers[^1] >= maxLen ? q.Markers.Where(m => m < maxLen).ToArray() : q.Markers;
+        return new EncodedItem(ids, markers, q.Type);
     }
 
     private static int FloorDiv(int a, int b) => (int)Math.Floor((double)a / b);

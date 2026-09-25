@@ -2,8 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 
-using Microsoft.Extensions.Logging;
-
 using NLaya.Lang;
 
 namespace NLaya.Routing;
@@ -33,10 +31,16 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
 
     private static readonly Dictionary<string, string> Aliases = new()
     {
-        ["en"] = "english", ["laya"] = "english", ["default"] = "english",
-        ["multi"] = "multilingual", ["ml"] = "multilingual", ["laya-multilingual"] = "multilingual",
-        ["typed"] = "typed-decisions", ["typed_decisions"] = "typed-decisions",
-        ["laya-typed-decisions"] = "typed-decisions", ["decisions"] = "typed-decisions",
+        ["en"] = "english",
+        ["laya"] = "english",
+        ["default"] = "english",
+        ["multi"] = "multilingual",
+        ["ml"] = "multilingual",
+        ["laya-multilingual"] = "multilingual",
+        ["typed"] = "typed-decisions",
+        ["typed_decisions"] = "typed-decisions",
+        ["laya-typed-decisions"] = "typed-decisions",
+        ["decisions"] = "typed-decisions",
     };
 
     private static readonly (string Name, string[] Ids)[] Workflows =
@@ -199,7 +203,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         foreach (var n in names)
         {
             var ctx = new PredictContext([], new Questions()) { Model = n, Agent = agent, Router = this };
-            Dispatch(Compose(null), evict ? h => h.OnEvict(ctx) : h => h.OnLoad(ctx), ctx, HooksRaise, evict ? "OnEvict" : "OnLoad");
+            Dispatch(Compose(null), evict ? h => h.OnEvict(ctx) : h => h.OnLoad(ctx), HooksRaise, evict ? "OnEvict" : "OnLoad");
         }
     }
 
@@ -214,7 +218,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
             Decision = Decide(state, questions, options),
             Router = this,
         };
-        Dispatch(Compose(options.Hooks), h => h.OnRoute(ctx), ctx, options.HooksRaise ?? HooksRaise, nameof(ILayaHook.OnRoute));
+        Dispatch(Compose(options.Hooks), h => h.OnRoute(ctx), options.HooksRaise ?? HooksRaise, nameof(ILayaHook.OnRoute));
         return ctx.Decision!;
     }
 
@@ -318,7 +322,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     public IReadOnlyList<RouteDecision> RouteBatch(IEnumerable<RouteRequest> requests) =>
         RouteBatchCore(requests.ToList(), null, null);
 
-    private List<RouteDecision> RouteBatchCore(IReadOnlyList<RouteRequest> requests, IEnumerable<ILayaHook>? hooks, bool? hooksRaise)
+    private List<RouteDecision> RouteBatchCore(List<RouteRequest> requests, IEnumerable<ILayaHook>? hooks, bool? hooksRaise)
     {
         var decisions = new List<RouteDecision>(requests.Count);
         for (var i = 0; i < requests.Count; i++)
@@ -388,7 +392,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
                         Lang = reqs[i].Lang ?? decisions[i].Detection?.Language,
                     };
                     started.Add(ctx);
-                    Dispatch(active, h => h.OnPredictStart(ctx), ctx, raise, nameof(ILayaHook.OnPredictStart));
+                    Dispatch(active, h => h.OnPredictStart(ctx), raise, nameof(ILayaHook.OnPredictStart));
                 }
 
                 foreach (var pass in PassGroups(indices, started, decisions, agent))
@@ -414,11 +418,11 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
                 foreach (var ctx in started.Where(c => c.Results is null))
                 {
                     ctx.Error = ex;
-                    try { Dispatch(active, h => h.OnError(ctx), ctx, raise, nameof(ILayaHook.OnError)); }
-                    catch (Exception hookEx) { Logger.LogWarning(hookEx, "laya: an error hook failed while handling {Error}", ex.GetType().Name); }
+                    try { Dispatch(active, h => h.OnError(ctx), raise, nameof(ILayaHook.OnError)); }
+                    catch (Exception hookEx) { Logger.ErrorHookFailed(hookEx, ex.GetType().Name); }
                 }
                 try { EndContexts(active, started, raise); }
-                catch (Exception hookEx) { Logger.LogWarning(hookEx, "laya: an end hook failed while handling {Error}", ex.GetType().Name); }
+                catch (Exception hookEx) { Logger.EndHookFailed(hookEx, ex.GetType().Name); }
                 throw;
             }
 
@@ -438,6 +442,8 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     private static List<PassGroup> PassGroups(List<int> indices, List<PredictContext> started, List<RouteDecision> decisions, LayaAgent agent)
     {
         var passes = new List<PassGroup>();
+        // Requests usually share one Questions instance; serialize each instance once.
+        var schemas = new Dictionary<Questions, string>(ReferenceEqualityComparer.Instance);
         for (var k = 0; k < indices.Count; k++)
         {
             var ctx = started[k];
@@ -448,7 +454,8 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
                 continue;
             }
             var lang = agent.Temperatures.HasLanguageOverrides ? ctx.Lang : null;
-            var schema = ctx.Questions.ToJson().ToJsonString();
+            if (!schemas.TryGetValue(ctx.Questions, out var schema))
+                schemas[ctx.Questions] = schema = ctx.Questions.ToJson().ToJsonString();
             var pass = passes.Find(p => p.Schema == schema && p.MaxLen == ctx.MaxLen && p.HeadMaxLen == ctx.HeadMaxLen && p.Lang == lang);
             if (pass is null) passes.Add(pass = new PassGroup(schema, ctx.Questions, ctx.MaxLen, ctx.HeadMaxLen, lang));
             pass.Items.Add((indices[k], ctx));
@@ -476,10 +483,10 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         Exception? first = null;
         foreach (var ctx in contexts)
         {
-            try { Dispatch(active, h => h.OnPredictEnd(ctx), ctx, raise, nameof(ILayaHook.OnPredictEnd)); }
+            try { Dispatch(active, h => h.OnPredictEnd(ctx), raise, nameof(ILayaHook.OnPredictEnd)); }
             catch (Exception hookEx)
             {
-                if (ctx.Error is not null) Logger.LogWarning(hookEx, "laya: an end hook failed while handling {Error}", ctx.Error.GetType().Name);
+                if (ctx.Error is not null) Logger.EndHookFailed(hookEx, ctx.Error.GetType().Name);
                 else first ??= hookEx;
             }
         }
