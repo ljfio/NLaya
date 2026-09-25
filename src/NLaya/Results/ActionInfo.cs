@@ -5,5 +5,6 @@ namespace NLaya;
 /// <summary>The act/escalate head's output for one question.</summary>
 public sealed record ActionInfo(double ActProbability)
 {
+    /// <summary>Python's dict shape.</summary>
     public JsonObject ToJson() => new() { ["act_probability"] = ActProbability };
 }

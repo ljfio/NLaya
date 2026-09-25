@@ -8,7 +8,9 @@ namespace NLaya;
 /// </summary>
 public interface ILayaHook
 {
+    /// <summary>Before inference: may rewrite the states or questions, or call <see cref="PredictContext.Skip"/>.</summary>
     void OnPredictStart(PredictContext ctx) { }
+    /// <summary>After inference (or a failure): may rewrite <see cref="PredictContext.Results"/>.</summary>
     void OnPredictEnd(PredictContext ctx) { }
     /// <summary>Router: may replace <see cref="PredictContext.Decision"/>.</summary>
     void OnRoute(PredictContext ctx) { }
@@ -16,5 +18,6 @@ public interface ILayaHook
     void OnLoad(PredictContext ctx) { }
     /// <summary>Router: checkpoint <see cref="PredictContext.Model"/> was evicted or unloaded.</summary>
     void OnEvict(PredictContext ctx) { }
+    /// <summary>Inference failed with <see cref="PredictContext.Error"/>; end hooks still run.</summary>
     void OnError(PredictContext ctx) { }
 }

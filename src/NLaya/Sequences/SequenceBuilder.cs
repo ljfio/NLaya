@@ -15,6 +15,7 @@ public static class SequenceBuilder
     public static int[] EncodeState(LayaTokenizer tok, LayaState state) =>
         tok.Encode(state.Serialize().Replace(tok.MaskToken, " ", StringComparison.Ordinal));
 
+    /// <summary>One question row for a tokenized state, as <c>build_sequence</c> builds it.</summary>
     public static EncodedItem Build(LayaTokenizer tok, int[] stateIds, Question q, int maxLen, int headMaxLen, bool truncateLeft) =>
         Assemble(tok, EncodeQuestion(tok, q, headMaxLen), stateIds, maxLen, truncateLeft);
 

@@ -23,5 +23,6 @@ public sealed class TorchSharpOptions
     /// </summary>
     public int? NumThreads { get; set; }
 
+    /// <summary>Where device fallbacks are logged. <c>UseTorchSharp</c> copies <see cref="LayaOptions.Logger"/>.</summary>
     public ILogger? Logger { get; set; }
 }

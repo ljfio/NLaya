@@ -37,11 +37,16 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
     /// <summary>The local checkpoint directory.</summary>
     public string Directory { get; }
 
+    /// <summary>The checkpoint's <c>rl_agent_config.json</c>.</summary>
     public AgentConfig Config { get; }
+    /// <summary>The checkpoint's <c>encoder/config.json</c>, when it has one.</summary>
     public ModernBertConfig? EncoderConfig { get; }
+    /// <summary>The checkpoint's tokenizer.</summary>
     public LayaTokenizer Tokenizer { get; }
+    /// <summary>The calibration temperatures this agent applies, after clamping and language overrides.</summary>
     public TemperatureTable Temperatures { get; }
 
+    /// <summary>The inference backend; throws once the agent is disposed.</summary>
     public ILayaBackend Backend => _backend ?? throw new ObjectDisposedException(nameof(LayaAgent));
 
     // ---------------------------------------------------------------- predict
@@ -232,13 +237,16 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
 
     private static readonly Question WarmupQuestion = Question.Noul("Is this a warm-up request?");
 
+    /// <summary>The model id and backend, as Python's <c>repr</c>.</summary>
     public override string ToString() => $"LayaAgent(model_id='{ModelId}', backend={_backend?.Name ?? "disposed"})";
 
+    /// <summary>Free the backend (weights and device memory).</summary>
     public void Dispose()
     {
         Interlocked.Exchange(ref _backend, null)?.Dispose();
     }
 
+    /// <summary><see cref="Dispose"/>.</summary>
     public ValueTask DisposeAsync()
     {
         Dispose();

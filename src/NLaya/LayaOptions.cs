@@ -23,10 +23,12 @@ public sealed class LayaOptions
     /// <summary>Per-language calibration, keyed by language code ("de", "pt-BR" -> "pt").</summary>
     public IDictionary<string, LanguageTemperature> LangTemperatures { get; } = new Dictionary<string, LanguageTemperature>();
 
+    /// <summary>Hooks the agent runs on every call.</summary>
     public IList<ILayaHook> Hooks { get; } = new List<ILayaHook>();
 
     /// <summary>When false, a failing hook logs a warning and inference continues.</summary>
     public bool ThrowOnHookError { get; set; } = true;
 
+    /// <summary>Where warnings go (invalid temperatures, failing hooks, device fallbacks).</summary>
     public ILogger? Logger { get; set; }
 }

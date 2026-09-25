@@ -15,8 +15,10 @@ namespace NLaya;
 /// </remarks>
 public sealed class Questions : OrderedDictionary<string, Question>
 {
+    /// <summary>An empty set.</summary>
     public Questions() { }
 
+    /// <summary>A set with <paramref name="items"/>, in order.</summary>
     public Questions(IEnumerable<KeyValuePair<string, Question>> items) : base(items) { }
 
     // ---------------------------------------------------------------- fluent
@@ -80,8 +82,10 @@ public sealed class Questions : OrderedDictionary<string, Question>
         return qs;
     }
 
+    /// <summary>Parse Python's dict shape from JSON text.</summary>
     public static Questions Parse(string json) => FromJson(JsonNode.Parse(json));
 
+    /// <summary>Python's dict shape.</summary>
     public JsonObject ToJson()
     {
         var o = new JsonObject();

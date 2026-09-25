@@ -13,6 +13,7 @@ public sealed class Question
 {
     private static readonly IReadOnlyDictionary<string, JsonNode?> NoCriteria = System.Collections.ObjectModel.ReadOnlyDictionary<string, JsonNode?>.Empty;
 
+    /// <summary>Choice, score or noul.</summary>
     public QuestionType Type { get; }
 
     /// <summary>The instructions as given: a string, or structured JSON rendered with Python json.dumps.</summary>
@@ -56,6 +57,7 @@ public sealed class Question
         _ => "noul",
     };
 
+    /// <summary>Options the model scores: the choices, the levels, or 2 for a noul.</summary>
     public int OptionCount => Type switch
     {
         QuestionType.Choice => Options.Count,

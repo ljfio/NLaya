@@ -8,6 +8,7 @@ namespace NLaya.Hub;
 /// </summary>
 public static class HfCache
 {
+    /// <summary>The hub cache directory the Hugging Face CLI writes to.</summary>
     public static string DefaultDir()
     {
         if (Environment.GetEnvironmentVariable("HF_HUB_CACHE") is { Length: > 0 } hub) return hub;

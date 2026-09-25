@@ -10,6 +10,7 @@ public static class Laya
 {
     /// <summary>The English checkpoint (and the bundle repo holding all three).</summary>
     public const string DefaultModel = "convaiinnovations/laya";
+    /// <summary>The standalone multilingual checkpoint (mmBERT-base, 100+ languages, up to 8,192 tokens).</summary>
     public const string MultilingualModel = "convaiinnovations/laya-multilingual";
 
     /// <summary>

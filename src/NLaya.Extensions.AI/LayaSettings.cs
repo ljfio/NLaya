@@ -7,6 +7,7 @@ namespace NLaya.Extensions.AI;
 /// </summary>
 public sealed class LayaSettings
 {
+    /// <summary>The configuration section settings bind from.</summary>
     public const string SectionName = "Laya";
 
     /// <summary>Hub id or local path; <see cref="Laya.DefaultModel"/> when unset.</summary>

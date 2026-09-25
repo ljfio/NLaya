@@ -5,9 +5,13 @@ public static class LayaHooks
 {
     private static ILayaHook[] s_defaults = [];
 
+    /// <summary>Hooks every agent and router runs, before their own.</summary>
     public static IReadOnlyList<ILayaHook> Defaults => Volatile.Read(ref s_defaults);
+    /// <summary>Replace the process-wide hooks. Prefer <c>AddLayaHook</c> with dependency injection in hosted apps.</summary>
     public static void SetDefaults(params ILayaHook[] hooks) => Volatile.Write(ref s_defaults, hooks.ToArray());
+    /// <summary>Add a process-wide hook.</summary>
     public static void AddDefault(ILayaHook hook) => Update(ref s_defaults, h => [.. h, hook]);
+    /// <summary>Remove every process-wide hook.</summary>
     public static void ClearDefaults() => Volatile.Write(ref s_defaults, []);
 
     /// <summary>A hook that runs <paramref name="fn"/> before inference.</summary>

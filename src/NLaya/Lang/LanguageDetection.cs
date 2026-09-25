@@ -13,6 +13,7 @@ public sealed record LanguageDetection(
     double NonLatinFraction,
     string? MixedSegment)
 {
+    /// <summary>Python's dict shape.</summary>
     public JsonObject ToJson()
     {
         var prof = new JsonObject();

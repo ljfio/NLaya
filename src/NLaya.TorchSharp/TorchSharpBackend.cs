@@ -9,13 +9,16 @@ using static TorchSharp.torch;
 
 namespace NLaya.TorchSharp;
 
+/// <summary>The Laya network in TorchSharp (libtorch), with weights read from <c>model.safetensors</c>. Thread-safe.</summary>
 public sealed class TorchSharpBackend : ILayaBackend
 {
     private readonly LayaNetwork _net;
     private readonly ILogger _log;
 
+    /// <inheritdoc/>
     public string Name { get; }
 
+    /// <summary>Load the checkpoint's weights onto the device <paramref name="options"/> names, falling back to CPU when it can't be used.</summary>
     public TorchSharpBackend(LayaCheckpoint checkpoint, TorchSharpOptions options)
     {
         _log = options.Logger ?? NullLogger.Instance;
@@ -65,6 +68,7 @@ public sealed class TorchSharpBackend : ILayaBackend
         return torch.device(spec);
     }
 
+    /// <inheritdoc/>
     public BackendOutput Run(EncodedBatch batch)
     {
         using var mode = inference_mode();
@@ -96,5 +100,6 @@ public sealed class TorchSharpBackend : ILayaBackend
     /// <summary>True when some row is shorter than the batch; without padding the network skips its masks.</summary>
     private static bool IsPadded(EncodedBatch batch) => batch.Lengths.AsSpan().ContainsAnyExcept(batch.SeqLen);
 
+    /// <summary>Free the weights (and device memory).</summary>
     public void Dispose() => _net.Dispose();
 }

@@ -9,13 +9,21 @@ namespace NLaya.Backends;
 /// </summary>
 public sealed class EncodedBatch
 {
+    /// <summary>Question rows in the batch (states × questions).</summary>
     public int Rows { get; }
+    /// <summary>Padded sequence length: the longest row.</summary>
     public int SeqLen { get; }
+    /// <summary>The most options any row has.</summary>
     public int MaxMarkers { get; }
+    /// <summary>Token ids, <c>[Rows, SeqLen]</c>, padded with the tokenizer's pad id.</summary>
     public long[] InputIds { get; }
+    /// <summary>1 for real tokens, 0 for padding, <c>[Rows, SeqLen]</c>.</summary>
     public long[] AttentionMask { get; }
+    /// <summary>Position of each option's [MASK] marker, <c>[Rows, MaxMarkers]</c>.</summary>
     public long[] MarkerPos { get; }
+    /// <summary>True where a row has that option, <c>[Rows, MaxMarkers]</c>.</summary>
     public bool[] MarkerMask { get; }
+    /// <summary>Each row's question type (0 choice, 1 score, 2 noul), <c>[Rows]</c>.</summary>
     public long[] QType { get; }
     /// <summary>Real (unpadded) length of each row.</summary>
     public int[] Lengths { get; }
@@ -36,6 +44,7 @@ public sealed class EncodedBatch
         OptionCounts = new int[rows];
     }
 
+    /// <summary>Pad <paramref name="items"/> into one batch, as <c>laya.common.collate_items</c> does.</summary>
     public static EncodedBatch Collate(IReadOnlyList<EncodedItem> items, int padId)
     {
         if (items.Count == 0) throw new ArgumentException("cannot collate an empty batch", nameof(items));

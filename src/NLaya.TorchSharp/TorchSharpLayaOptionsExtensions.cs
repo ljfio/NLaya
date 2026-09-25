@@ -1,5 +1,6 @@
 namespace NLaya.TorchSharp;
 
+/// <summary>Adds the TorchSharp backend to <see cref="LayaOptions"/>.</summary>
 public static class TorchSharpLayaOptionsExtensions
 {
     /// <summary>

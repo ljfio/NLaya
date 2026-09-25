@@ -20,6 +20,7 @@ public sealed class LayaRouterChatClient : IChatClient
     private readonly Dictionary<string, IChatClient> _clients;
     private readonly Questions _questions;
 
+    /// <summary>Route between <see cref="LayaRouterChatClientOptions.Routes"/> with <paramref name="predictor"/>.</summary>
     public LayaRouterChatClient(ILayaPredictor predictor, LayaRouterChatClientOptions options)
     {
         _predictor = predictor ?? throw new ArgumentNullException(nameof(predictor));
@@ -48,6 +49,7 @@ public sealed class LayaRouterChatClient : IChatClient
         return (route, result);
     }
 
+    /// <summary>Choose a route, then answer with its client; the route and Laya result are on the response.</summary>
     public async Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
@@ -58,6 +60,7 @@ public sealed class LayaRouterChatClient : IChatClient
         return response;
     }
 
+    /// <summary>Choose a route, then stream from its client; the route and Laya result are on the first update.</summary>
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
         ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -81,6 +84,7 @@ public sealed class LayaRouterChatClient : IChatClient
         properties[LayaChatProperties.Result] = result;
     }
 
+    /// <inheritdoc/>
     public object? GetService(Type serviceType, object? serviceKey = null)
     {
         ArgumentNullException.ThrowIfNull(serviceType);
@@ -89,5 +93,6 @@ public sealed class LayaRouterChatClient : IChatClient
         return serviceType.IsInstanceOfType(_predictor) ? _predictor : null;
     }
 
+    /// <summary>Nothing to release: the route clients belong to the caller.</summary>
     public void Dispose() { }
 }

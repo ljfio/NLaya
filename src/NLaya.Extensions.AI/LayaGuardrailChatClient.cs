@@ -16,6 +16,7 @@ public sealed class LayaGuardrailChatClient : DelegatingChatClient
     private readonly LayaGuardrailOptions _options;
     private readonly Questions _questions;
 
+    /// <summary>Screen requests to <paramref name="innerClient"/> with <paramref name="predictor"/>; <paramref name="options"/> default to <see cref="Presets.Guard"/> and <see cref="GuardrailAction.Raise"/>.</summary>
     public LayaGuardrailChatClient(IChatClient innerClient, ILayaPredictor predictor, LayaGuardrailOptions? options = null)
         : base(innerClient)
     {
@@ -50,6 +51,7 @@ public sealed class LayaGuardrailChatClient : DelegatingChatClient
         return found;
     }
 
+    /// <summary>Check the request, then call the inner client unless the guardrail blocks it.</summary>
     public override async Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
@@ -68,6 +70,7 @@ public sealed class LayaGuardrailChatClient : DelegatingChatClient
         return response;
     }
 
+    /// <summary>Check the request once, then stream from the inner client unless the guardrail blocks it.</summary>
     public override async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
         ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {

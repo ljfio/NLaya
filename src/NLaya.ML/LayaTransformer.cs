@@ -23,13 +23,19 @@ public sealed class LayaTransformer : ITransformer
         Options = options;
     }
 
+    /// <summary>The agent or router that answers the rows.</summary>
     public ILayaPredictor Predictor { get; }
+    /// <summary>The questions asked about every row.</summary>
     public Questions Questions { get; }
+    /// <summary>The columns the state is read from; several make a JSON object keyed by column name.</summary>
     public IReadOnlyList<string> InputColumnNames { get; }
+    /// <summary>Chunk size, batch options and column prefix.</summary>
     public LayaTransformerOptions Options { get; }
 
+    /// <summary>False: rows are answered in chunks, not one at a time.</summary>
     public bool IsRowToRowMapper => false;
 
+    /// <summary><paramref name="inputSchema"/> plus the answer columns.</summary>
     public DataViewSchema GetOutputSchema(DataViewSchema inputSchema)
     {
         ArgumentNullException.ThrowIfNull(inputSchema);
@@ -37,12 +43,14 @@ public sealed class LayaTransformer : ITransformer
         return BuildSchema(inputSchema, LayaOutputColumn.For(Questions, Options.OutputColumnPrefix));
     }
 
+    /// <summary>A lazy view that answers rows a chunk at a time, only when an answer column is read.</summary>
     public IDataView Transform(IDataView input)
     {
         ArgumentNullException.ThrowIfNull(input);
         return new LayaDataView(input, Predictor, Questions, InputColumnNames, Options);
     }
 
+    /// <summary>Not supported: call the <see cref="ILayaPredictor"/> directly for single rows.</summary>
     public IRowToRowMapper GetRowToRowMapper(DataViewSchema inputSchema) =>
         throw new NotSupportedException("LayaTransformer answers rows in batches and has no row-to-row mapper; call the ILayaPredictor directly for single rows.");
 

@@ -7,6 +7,7 @@ namespace NLaya;
 /// <summary>The answers for one state: the same shape as Python's <c>predict</c> result dict.</summary>
 public sealed class LayaResult
 {
+    /// <summary>A result, for hooks and tests that build one (for example a cache hit).</summary>
     public LayaResult(string model, OrderedDictionary<string, Answer> answers, Usage usage)
     {
         Model = model;
@@ -19,7 +20,9 @@ public sealed class LayaResult
 
     /// <summary>The <c>"model"</c> value Python writes in every result, whatever the checkpoint; <see cref="ToJson"/> writes it too.</summary>
     public const string PythonModelName = "laya-rl-agent";
+    /// <summary>The answers by question id, in question order.</summary>
     public OrderedDictionary<string, Answer> Answers { get; }
+    /// <summary>Tokens read.</summary>
     public Usage Usage { get; }
 
     /// <summary>Set by <see cref="Routing.Router"/>: which checkpoint answered, and why.</summary>
@@ -27,6 +30,7 @@ public sealed class LayaResult
 
     internal LayaResult WithRouting(Routing.RouteDecision decision) => Routing is not null ? this : new(Model, Answers, Usage) { Routing = decision };
 
+    /// <summary>The answer to <paramref name="questionId"/>.</summary>
     public Answer this[string questionId] => Answers[questionId];
 
     /// <summary>The answer to <paramref name="questionId"/> as a specific type.</summary>
@@ -43,10 +47,14 @@ public sealed class LayaResult
         return answer is not null;
     }
 
+    /// <summary>The choice answer to <paramref name="questionId"/>.</summary>
     public ChoiceAnswer Choice(string questionId) => Answer<ChoiceAnswer>(questionId);
+    /// <summary>The score answer to <paramref name="questionId"/>.</summary>
     public ScoreAnswer Score(string questionId) => Answer<ScoreAnswer>(questionId);
+    /// <summary>The noul answer to <paramref name="questionId"/>.</summary>
     public NoulAnswer Noul(string questionId) => Answer<NoulAnswer>(questionId);
 
+    /// <summary>Python's result dict, including its fixed <c>"model": "laya-rl-agent"</c>.</summary>
     public JsonObject ToJson()
     {
         var answers = new JsonObject();
@@ -56,6 +64,7 @@ public sealed class LayaResult
         return o;
     }
 
+    /// <summary><see cref="ToJson"/> as text.</summary>
     public string ToJsonString(bool indented = false) => ToJson().ToJsonString(indented ? IndentedOptions : CompactOptions);
 
     private static readonly JsonSerializerOptions CompactOptions = new()
@@ -65,5 +74,6 @@ public sealed class LayaResult
 
     private static readonly JsonSerializerOptions IndentedOptions = new(CompactOptions) { WriteIndented = true };
 
+    /// <summary><see cref="ToJsonString"/>.</summary>
     public override string ToString() => ToJsonString();
 }

@@ -26,7 +26,10 @@ public sealed class RouterOptions
     /// <summary>A language-identification hook: returns a code ("en", "pt-BR") or null to abstain.</summary>
     public Func<LayaState, string?>? LangGuess { get; set; }
 
+    /// <summary>Hooks the router runs per request (the agents it loads don't run them again).</summary>
     public IList<ILayaHook> Hooks { get; } = new List<ILayaHook>();
+    /// <summary>When false, a failing hook is logged and the call continues.</summary>
     public bool ThrowOnHookError { get; set; } = true;
+    /// <summary>Where the router and the agents it loads log.</summary>
     public ILogger? Logger { get; set; }
 }

@@ -14,12 +14,15 @@ public sealed class TemperatureTable
     private readonly Dictionary<string, double> _byOptions;
     private readonly Dictionary<string, (double[] PerType, Dictionary<string, double> ByOptions)> _lang = new(StringComparer.Ordinal);
 
+    /// <summary>Clamped temperatures for choice, score and noul questions.</summary>
     public IReadOnlyList<double> PerType => _perType;
+    /// <summary>Clamped per-bucket temperatures ("choice:3-5", ...), which take precedence over <see cref="PerType"/>.</summary>
     public IReadOnlyDictionary<string, double> ByOptions => _byOptions;
 
     /// <summary>Entries that had to be clamped or replaced, formatted like Python's warning.</summary>
     public IReadOnlyList<string> Rejected { get; }
 
+    /// <summary>A table from a checkpoint's raw config values, with optional per-language overrides; invalid values are clamped and listed in <see cref="Rejected"/>.</summary>
     public TemperatureTable(IReadOnlyList<JsonNode?> perType, IReadOnlyDictionary<string, JsonNode?> byOptions,
         IReadOnlyDictionary<string, LanguageTemperature>? lang = null)
     {
@@ -64,8 +67,10 @@ public sealed class TemperatureTable
         return $"{Question.TypeNameOf(type)}:{size}";
     }
 
+    /// <summary><paramref name="t"/> limited to [<see cref="Min"/>, <see cref="Max"/>]; NaN and infinities become 1.0.</summary>
     public static double Clamp(double t) => double.IsNaN(t) || double.IsInfinity(t) ? 1.0 : Math.Min(Max, Math.Max(Min, t));
 
+    /// <summary>A config value read as Python's <c>float(t)</c> and clamped; anything unreadable becomes 1.0.</summary>
     public static double Clamp(JsonNode? t) => AsDouble(t) is { } d ? Clamp(d) : 1.0;
 
     /// <summary>Python <c>float(t)</c>: a number, a numeric string or a bool; null for anything else.</summary>

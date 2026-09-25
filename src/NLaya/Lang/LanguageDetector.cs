@@ -34,8 +34,10 @@ public static partial class LanguageDetector
     [GeneratedRegex(@"[\p{L}\p{Nl}\p{No}]{2,}")]
     private static partial Regex LetterRun { get; }
 
+    /// <summary>Script and language of a state's text (every string leaf of a JSON state).</summary>
     public static LanguageDetection Analyse(LayaState? state) => Analyse(Leaves(state));
 
+    /// <summary>Script and language of <paramref name="text"/>.</summary>
     public static LanguageDetection Analyse(string text) => Analyse([text]);
 
     /// <summary>True when the English checkpoint can be expected to read this state.</summary>

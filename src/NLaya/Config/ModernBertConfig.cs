@@ -10,29 +10,48 @@ namespace NLaya.Config;
 /// </summary>
 public sealed class ModernBertConfig
 {
+    /// <summary>Width of the hidden states.</summary>
     public int HiddenSize { get; init; } = 768;
+    /// <summary>Encoder layers.</summary>
     public int NumHiddenLayers { get; init; } = 22;
+    /// <summary>Attention heads per layer.</summary>
     public int NumAttentionHeads { get; init; } = 12;
+    /// <summary>Width of the MLP (per GLU half).</summary>
     public int IntermediateSize { get; init; } = 1152;
+    /// <summary>Token embeddings.</summary>
     public int VocabSize { get; init; } = 50368;
+    /// <summary>Longest sequence the rotary embeddings were trained for.</summary>
     public int MaxPositionEmbeddings { get; init; } = 8192;
+    /// <summary>LayerNorm epsilon.</summary>
     public double NormEps { get; init; } = 1e-5;
+    /// <summary>Whether LayerNorms have a bias.</summary>
     public bool NormBias { get; init; }
+    /// <summary>Whether the attention projections have a bias.</summary>
     public bool AttentionBias { get; init; }
+    /// <summary>Whether the MLP projections have a bias.</summary>
     public bool MlpBias { get; init; }
+    /// <summary>Every n-th layer attends globally; the rest use a sliding window (without <c>layer_types</c>).</summary>
     public int GlobalAttnEveryNLayers { get; init; } = 3;
+    /// <summary>Sliding-window width in tokens (each side sees half).</summary>
     public int LocalAttention { get; init; } = 128;
+    /// <summary>RoPE base for global layers.</summary>
     public double GlobalRopeTheta { get; init; } = 160000;
+    /// <summary>RoPE base for sliding-window layers.</summary>
     public double LocalRopeTheta { get; init; } = 10000;
+    /// <summary>The MLP activation, e.g. <c>gelu</c>.</summary>
     public string HiddenActivation { get; init; } = "gelu";
+    /// <summary>The padding token id.</summary>
     public int PadTokenId { get; init; }
     /// <summary>Per layer: true for full (global) attention, false for sliding-window.</summary>
     public IReadOnlyList<bool> GlobalLayers { get; init; } = [];
 
+    /// <summary>Width of one attention head.</summary>
     public int HeadDim => HiddenSize / NumAttentionHeads;
 
+    /// <summary>Read <paramref name="path"/>.</summary>
     public static ModernBertConfig Load(string path) => Parse(File.ReadAllText(path));
 
+    /// <summary>Parse <c>config.json</c> text.</summary>
     public static ModernBertConfig Parse(string json)
     {
         var o = JsonNode.Parse(json)!.AsObject();

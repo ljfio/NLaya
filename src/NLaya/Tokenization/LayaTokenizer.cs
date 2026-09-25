@@ -25,10 +25,15 @@ public sealed class LayaTokenizer
     private readonly Regex? _addedRe;
     private readonly bool _metaspace;
 
+    /// <summary>The id that starts every row ([CLS], or &lt;bos&gt; / &lt;s&gt;).</summary>
     public int ClsId { get; }
+    /// <summary>The separator id ([SEP], or &lt;eos&gt; / &lt;/s&gt;).</summary>
     public int SepId { get; }
+    /// <summary>The option-marker id ([MASK] or &lt;mask&gt;).</summary>
     public int MaskId { get; }
+    /// <summary>The padding id.</summary>
     public int PadId { get; }
+    /// <summary>The option marker's text; it is removed from states and questions.</summary>
     public string MaskToken { get; }
 
     private LayaTokenizer(JsonElement root, JsonElement? config)

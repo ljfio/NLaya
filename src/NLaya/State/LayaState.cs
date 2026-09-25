@@ -34,8 +34,10 @@ public sealed class LayaState
     /// </summary>
     public bool IsConversation => _json is JsonArray;
 
+    /// <summary>A plain-text state.</summary>
     public static LayaState FromText(string text) => new(text ?? throw new ArgumentNullException(nameof(text)), null);
 
+    /// <summary>A structured state (a JSON string value becomes text; an array is a conversation).</summary>
     public static LayaState FromJson(JsonNode? json) => json switch
     {
         JsonValue v when v.GetValueKind() == JsonValueKind.String => new(v.GetValue<string>(), null),
@@ -103,9 +105,13 @@ public sealed class LayaState
 
     internal JsonNode? ToNode() => _text is not null ? JsonValue.Create(_text) : _json?.DeepClone();
 
+    /// <summary><see cref="FromText"/>.</summary>
     public static implicit operator LayaState(string text) => FromText(text);
+    /// <summary><see cref="FromJson"/>.</summary>
     public static implicit operator LayaState(JsonNode? json) => FromJson(json);
+    /// <summary><see cref="FromJson"/> of the element.</summary>
     public static implicit operator LayaState(JsonElement json) => FromJson(JsonNode.Parse(json.GetRawText()));
 
+    /// <summary><see cref="Serialize"/>.</summary>
     public override string ToString() => Serialize();
 }

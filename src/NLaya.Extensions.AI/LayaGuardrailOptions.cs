@@ -8,6 +8,7 @@ public sealed class LayaGuardrailOptions
     /// <summary>The questions to screen with; <see cref="Presets.Guard"/> when null. Choice questions never count as violations.</summary>
     public Questions? Questions { get; set; }
 
+    /// <summary>What to do on a violation: throw (<see cref="GuardrailAction.Raise"/>, the default), answer with <see cref="RejectionMessage"/>, or annotate and let it through.</summary>
     public GuardrailAction Action { get; set; } = GuardrailAction.Raise;
 
     /// <summary>The assistant reply for <see cref="GuardrailAction.Filter"/>.</summary>

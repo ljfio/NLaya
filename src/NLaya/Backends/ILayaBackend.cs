@@ -10,5 +10,6 @@ public interface ILayaBackend : IDisposable
     /// <summary>A short description, e.g. "torchsharp:cpu" or "onnx:cuda".</summary>
     string Name { get; }
 
+    /// <summary>Run the encoder and decision head over <paramref name="batch"/>: option logits and act logits per row.</summary>
     BackendOutput Run(EncodedBatch batch);
 }

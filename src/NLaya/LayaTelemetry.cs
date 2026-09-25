@@ -18,6 +18,7 @@ namespace NLaya;
 /// </remarks>
 public static class LayaTelemetry
 {
+    /// <summary>The <see cref="ActivitySource"/> and <see cref="Meter"/> name.</summary>
     public const string Name = "NLaya";
 
     internal const string ModelTag = "laya.model";

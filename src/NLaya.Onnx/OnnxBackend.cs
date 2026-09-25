@@ -14,8 +14,10 @@ public sealed class OnnxBackend : ILayaBackend
     // CUDA device memory for the encoder output, or null to let ONNX Runtime return it on the host.
     private readonly OrtMemoryInfo? _hiddenMemory;
 
+    /// <inheritdoc/>
     public string Name { get; }
 
+    /// <summary>Open <c>encoder.onnx</c> and <c>head.onnx</c> from <see cref="OnnxOptions.ModelDir"/>.</summary>
     public OnnxBackend(OnnxOptions options)
     {
         var enc = Path.Combine(options.ModelDir, "encoder.onnx");
@@ -57,6 +59,7 @@ public sealed class OnnxBackend : ILayaBackend
         Name = cuda ? "onnx:cuda" : "onnx:cpu";
     }
 
+    /// <inheritdoc/>
     public BackendOutput Run(EncodedBatch batch)
     {
         using var run = new RunOptions();
@@ -90,6 +93,7 @@ public sealed class OnnxBackend : ILayaBackend
         return binding.GetOutputValues();
     }
 
+    /// <summary>Release both ONNX Runtime sessions.</summary>
     public void Dispose()
     {
         _hiddenMemory?.Dispose();

@@ -2,8 +2,10 @@ using System.Text.Json.Nodes;
 
 namespace NLaya;
 
+/// <summary>The answer to an ordinal score question.</summary>
 public sealed record ScoreAnswer : Answer
 {
+    /// <inheritdoc/>
     public override QuestionType Type => QuestionType.Score;
 
     /// <summary>The expected level, sum(i * p_i).</summary>
@@ -18,6 +20,7 @@ public sealed record ScoreAnswer : Answer
     /// <summary>The single most likely level.</summary>
     public int MostLikelyLevel => Probabilities.Count == 0 ? 0 : Probabilities.Index().MaxBy(x => x.Item).Index;
 
+    /// <inheritdoc/>
     public override JsonObject ToJson()
     {
         var legend = new JsonObject();

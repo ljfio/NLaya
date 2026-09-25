@@ -26,6 +26,7 @@ public sealed class LayaEstimator : IEstimator<LayaTransformer>
         _transformer = new LayaTransformer(predictor, questions, inputColumnNames, options);
     }
 
+    /// <summary>Check <paramref name="input"/> has the input columns and return the transformer; nothing is trained.</summary>
     public LayaTransformer Fit(IDataView input)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -33,6 +34,7 @@ public sealed class LayaEstimator : IEstimator<LayaTransformer>
         return _transformer;
     }
 
+    /// <summary>The input columns plus one set of answer columns per question.</summary>
     public SchemaShape GetOutputSchema(SchemaShape inputSchema)
     {
         ArgumentNullException.ThrowIfNull(inputSchema);

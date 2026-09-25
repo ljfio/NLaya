@@ -11,5 +11,6 @@ public sealed record LayaCheckpoint(
     ModernBertConfig? EncoderConfig,
     LayaTokenizer Tokenizer)
 {
+    /// <summary>The checkpoint's <c>model.safetensors</c>.</summary>
     public string WeightsPath => Path.Combine(Directory, "model.safetensors");
 }

@@ -13,8 +13,10 @@ namespace NLaya.Routing;
 /// </summary>
 public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
 {
+    /// <summary>The Hub repo that bundles all three checkpoints (English at the root).</summary>
     public const string BundleRepo = "convaiinnovations/laya";
 
+    /// <summary>Where checkpoints load from by default: subfolders of <see cref="BundleRepo"/>, as in Python.</summary>
     public static readonly IReadOnlyDictionary<Checkpoint, CheckpointSpec> DefaultModels = new Dictionary<Checkpoint, CheckpointSpec>
     {
         [Checkpoint.English] = new(BundleRepo),
@@ -22,6 +24,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         [Checkpoint.TypedDecisions] = new(BundleRepo, "typed-decisions"),
     };
 
+    /// <summary>The standalone repos, used with <see cref="RouterOptions.StandaloneRepos"/>.</summary>
     public static readonly IReadOnlyDictionary<Checkpoint, CheckpointSpec> StandaloneModels = new Dictionary<Checkpoint, CheckpointSpec>
     {
         [Checkpoint.English] = new("convaiinnovations/laya"),
@@ -50,6 +53,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     private readonly Lock _lock = new();
     private int _maxLoaded;
 
+    /// <summary>A router with <paramref name="options"/>; checkpoints load on first use.</summary>
     public Router(RouterOptions? options = null) : base((options ??= new()).Hooks, options.ThrowOnHookError, options.Logger)
     {
         _o = options;
@@ -593,9 +597,11 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
     public IReadOnlyList<LayaResult> PredictBatch(IEnumerable<LayaState> states, Questions questions, BatchOptions? options = null) =>
         PredictBatch(states.Select(s => new RouteRequest(s, questions) { Lang = options?.Lang }), options);
 
+    /// <summary><see cref="PredictBatch(IEnumerable{RouteRequest}, BatchOptions?)"/> on the thread pool.</summary>
     public Task<IReadOnlyList<LayaResult>> PredictBatchAsync(IEnumerable<RouteRequest> requests, BatchOptions? options = null, CancellationToken ct = default) =>
         Task.Run(() => PredictBatch(requests, options), ct);
 
+    /// <summary><see cref="PredictBatch(IEnumerable{LayaState}, Questions, BatchOptions?)"/> on the thread pool.</summary>
     public Task<IReadOnlyList<LayaResult>> PredictBatchAsync(IEnumerable<LayaState> states, Questions questions, BatchOptions? options = null, CancellationToken ct = default) =>
         Task.Run(() => PredictBatch(states, questions, options), ct);
 

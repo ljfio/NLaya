@@ -8,7 +8,8 @@
     <!-- The recommended .NET analyzer set, as errors; opt-outs are listed with reasons in .editorconfig. -->
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- Public members of the packages under src/ need XML docs (CS1591); tests, samples and benchmarks don't. -->
+    <NoWarn Condition="!$(MSBuildProjectDirectory.StartsWith('$(MSBuildThisFileDirectory)src'))">$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <!-- Versions come from git tags (v0.1.0 -> 0.1.0); untagged commits are 0.1.0-alpha.0.<height>. -->

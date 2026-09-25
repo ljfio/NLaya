@@ -11,12 +11,16 @@ public abstract class HookRegistry(IEnumerable<ILayaHook>? hooks, bool throwOnHo
     /// <summary>When false, a failing hook is logged as a warning and the call continues.</summary>
     public bool ThrowOnHookError { get; set; } = throwOnHookError;
 
+    /// <summary>Where failing hooks are logged when <see cref="ThrowOnHookError"/> is false.</summary>
     protected ILogger Logger { get; } = logger ?? NullLogger.Instance;
 
+    /// <summary>The installed hooks, in run order.</summary>
     public IReadOnlyList<ILayaHook> Hooks => Volatile.Read(ref _hooks);
 
+    /// <summary>Install <paramref name="hook"/> for every later call.</summary>
     public void AddHook(ILayaHook hook) => LayaHooks.Update(ref _hooks, h => [.. h, hook]);
 
+    /// <summary>Uninstall <paramref name="hook"/>; false if it wasn't installed.</summary>
     public bool RemoveHook(ILayaHook hook)
     {
         var removed = false;

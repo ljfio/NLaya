@@ -23,6 +23,7 @@ public class DecisionResult
     /// <summary>Laya's raw answer per field.</summary>
     public required OrderedDictionary<string, Answer> Answers { get; init; }
 
+    /// <summary>Tokens read to decide.</summary>
     public required Usage Usage { get; init; }
 
     /// <summary>Set when a <see cref="Router"/> decided: which checkpoint answered, and why.</summary>
