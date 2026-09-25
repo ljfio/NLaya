@@ -15,6 +15,8 @@ public class MLTransformerParityTests(ParityFixture fx)
     [Fact]
     public void Transformer_columns_equal_PredictBatch()
     {
+        // Two batchings agree exactly only in float32; in bf16/fp16 padding changes the last digits.
+        if (ParityFixture.ReducedPrecision) Assert.Skip("compares two batchings exactly, which only holds in float32");
         var agent = fx.Agent("torchsharp", "multilingual");
         var texts = new[]
         {

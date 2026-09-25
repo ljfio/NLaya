@@ -1,0 +1,45 @@
+name: parity-gpu
+
+# Model parity on a CUDA GPU, in float32 and bfloat16. GitHub has no free GPU runners, so this only
+# runs on demand, on a self-hosted runner labelled `gpu` (Linux, NVIDIA driver, CUDA 12). The fixture
+# fails rather than passing on CPU if the GPU isn't picked up.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: [self-hosted, linux, gpu]
+    strategy:
+      fail-fast: false
+      matrix:
+        dtype: [float32, bfloat16]
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      NLAYA_PARITY: 1
+      NLAYA_DEVICE: cuda
+      NLAYA_DTYPE: ${{ matrix.dtype }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: false # only used to run the hf CLI
+
+      - name: Download checkpoints
+        run: |
+          uvx --from huggingface_hub hf download convaiinnovations/laya
+          uvx --from huggingface_hub hf download convaiinnovations/laya-multilingual
+
+      - run: dotnet build tests/NLaya.Parity -c Release -p:TorchSharpRuntime=TorchSharp-cuda-linux -p:OnnxRuntimeGpu=true
+
+      - run: dotnet test --project tests/NLaya.Parity -c Release --no-build

@@ -11,6 +11,8 @@ public sealed class OnnxBackend : ILayaBackend
     private readonly InferenceSession _encoder;
     private readonly InferenceSession _head;
     private readonly bool _qtypeIs2D;
+    // CUDA device memory for the encoder output, or null to let ONNX Runtime return it on the host.
+    private readonly OrtMemoryInfo? _hiddenMemory;
 
     public string Name { get; }
 
@@ -34,7 +36,7 @@ public sealed class OnnxBackend : ILayaBackend
             if (options.UseCuda)
             {
                 // A missing provider (no Microsoft.ML.OnnxRuntime.Gpu, no CUDA) keeps CPU, like TorchSharp's fallback.
-                try { so.AppendExecutionProvider_CUDA(); cuda = true; }
+                try { so.AppendExecutionProvider_CUDA(options.CudaDeviceId); cuda = true; }
                 catch (Exception e)
                 {
                     cuda = false;
@@ -50,6 +52,8 @@ public sealed class OnnxBackend : ILayaBackend
         _encoder = new InferenceSession(enc, encOptions);
         _head = new InferenceSession(head, headOptions);
         _qtypeIs2D = _head.InputMetadata["qtype"].Dimensions.Length == 2;
+        if (cuda && options.KeepHiddenStatesOnDevice)
+            _hiddenMemory = new OrtMemoryInfo(OrtMemoryInfo.allocatorCUDA, OrtAllocatorType.DeviceAllocator, options.CudaDeviceId, OrtMemType.Default);
         Name = cuda ? "onnx:cuda" : "onnx:cpu";
     }
 
@@ -59,7 +63,7 @@ public sealed class OnnxBackend : ILayaBackend
         long[] seq = [batch.Rows, batch.SeqLen], markers = [batch.Rows, batch.MaxMarkers];
         using var ids = OrtValue.CreateTensorValueFromMemory(batch.InputIds, seq);
         using var att = OrtValue.CreateTensorValueFromMemory(batch.AttentionMask, seq);
-        using var encOut = _encoder.Run(run, ["input_ids", "attention_mask"], [ids, att], ["last_hidden_state"]);
+        using var encOut = RunEncoder(run, ids, att);
 
         using var pos = OrtValue.CreateTensorValueFromMemory(batch.MarkerPos, markers);
         using var mask = OrtValue.CreateTensorValueFromMemory(batch.MarkerMask, markers);
@@ -73,8 +77,22 @@ public sealed class OnnxBackend : ILayaBackend
             batch.Rows, batch.MaxMarkers, (int)act.GetTensorTypeAndShape().Shape[1]);
     }
 
+    /// <summary>The encoder's <c>last_hidden_state</c>; bound to device memory on CUDA so the head reads it in place.</summary>
+    private IDisposableReadOnlyCollection<OrtValue> RunEncoder(RunOptions run, OrtValue ids, OrtValue att)
+    {
+        if (_hiddenMemory is null) return _encoder.Run(run, ["input_ids", "attention_mask"], [ids, att], ["last_hidden_state"]);
+        using var binding = _encoder.CreateIoBinding();
+        binding.BindInput("input_ids", ids);
+        binding.BindInput("attention_mask", att);
+        binding.BindOutputToDevice("last_hidden_state", _hiddenMemory);
+        _encoder.RunWithBinding(run, binding);
+        binding.SynchronizeBoundOutputs();
+        return binding.GetOutputValues();
+    }
+
     public void Dispose()
     {
+        _hiddenMemory?.Dispose();
         _encoder.Dispose();
         _head.Dispose();
     }

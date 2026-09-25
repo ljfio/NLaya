@@ -3,6 +3,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <OutputType>Exe</OutputType>
+    <!-- The libtorch runtime; GPU runs pass -p:TorchSharpRuntime=TorchSharp-cuda-linux (or -windows). -->
+    <TorchSharpRuntime Condition="'$(TorchSharpRuntime)' == ''">TorchSharp-cpu</TorchSharpRuntime>
+    <!-- ONNX Runtime with the CUDA provider for GPU runs: -p:OnnxRuntimeGpu=true. -->
+    <OnnxRuntimeGpu Condition="'$(OnnxRuntimeGpu)' == ''">false</OnnxRuntimeGpu>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
@@ -21,6 +25,7 @@
     <ProjectReference Include="../../src/NLaya.Extensions.AI/NLaya.Extensions.AI.csproj" />
     <ProjectReference Include="../../src/NLaya.ML/NLaya.ML.csproj" />
 
-    <PackageReference Include="TorchSharp-cpu" Version="0.107.0" />
+    <PackageReference Include="$(TorchSharpRuntime)" Version="0.107.0" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.30.0" Condition="'$(OnnxRuntimeGpu)' == 'true'" />
   </ItemGroup>
 </Project>

@@ -47,6 +47,24 @@ public class DependencyInjectionTests
     }
 
     [Fact]
+    public async Task AddLayaMicroBatching_wraps_the_registered_predictor()
+    {
+        RequireCachedCheckpoint();
+        var factory = new FakeBackendFactory();
+        await using var sp = Provider(s => s
+            .AddLaya(Laya.MultilingualModel, o => o.Backend = factory)
+            .AddLayaMicroBatching(o => o.MaxDelay = TimeSpan.Zero));
+        var predictor = Assert.IsType<MicroBatchingPredictor>(sp.GetRequiredService<ILayaPredictor>());
+        Assert.Same(sp.GetRequiredService<LayaAgent>(), predictor.Inner);
+        var result = await predictor.PredictAsync("hello", Presets.Guard(), ct: TestContext.Current.CancellationToken);
+        Assert.NotNull(result.Noul("jailbreak"));
+    }
+
+    [Fact]
+    public void AddLayaMicroBatching_needs_a_predictor_first() =>
+        Assert.Throws<InvalidOperationException>(() => new ServiceCollection().AddLayaMicroBatching());
+
+    [Fact]
     public void Keyed_agents_resolve_separately()
     {
         RequireCachedCheckpoint();

@@ -76,7 +76,7 @@ public sealed class TorchSharpBackend : ILayaBackend
         var mpos = tensor(batch.MarkerPos, [rows, k], device: dev);
         var mmask = tensor(batch.MarkerMask, [rows, k], device: dev);
         var qt = tensor(batch.QType, [rows], device: dev);
-        var (logits, act) = _net.Forward(ids, att, mpos, mmask, qt);
+        var (logits, act) = _net.Forward(ids, att, mpos, mmask, qt, IsPadded(batch));
         var l = logits.cpu().data<float>().ToArray();
         var a = act.cpu().data<float>().ToArray();
         return new BackendOutput(l, a, batch.Rows, batch.MaxMarkers, (int)act.shape[1]);
@@ -90,8 +90,11 @@ public sealed class TorchSharpBackend : ILayaBackend
         var dev = _net.Device;
         var ids = tensor(batch.InputIds, [batch.Rows, batch.SeqLen], device: dev);
         var att = tensor(batch.AttentionMask, [batch.Rows, batch.SeqLen], device: dev);
-        return _net.Encode(ids, att).to(ScalarType.Float32).cpu().data<float>().ToArray();
+        return _net.Encode(ids, att, IsPadded(batch)).to(ScalarType.Float32).cpu().data<float>().ToArray();
     }
+
+    /// <summary>True when some row is shorter than the batch; without padding the network skips its masks.</summary>
+    private static bool IsPadded(EncodedBatch batch) => batch.Lengths.AsSpan().ContainsAnyExcept(batch.SeqLen);
 
     public void Dispose() => _net.Dispose();
 }

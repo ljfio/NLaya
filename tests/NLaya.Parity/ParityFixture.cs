@@ -4,6 +4,8 @@ using NLaya.Backends;
 using NLaya.Onnx;
 using NLaya.TorchSharp;
 
+using static TorchSharp.torch;
+
 namespace NLaya.Parity;
 
 /// <summary>
@@ -16,6 +18,27 @@ public sealed class ParityFixture : IDisposable
     public static bool Enabled => Environment.GetEnvironmentVariable("NLAYA_PARITY") is "1" or "true";
     /// <summary>A directory holding one export_onnx.py output per checkpoint: multilingual/, english/, typed_decisions/.</summary>
     public static string? OnnxRoot => Environment.GetEnvironmentVariable("NLAYA_ONNX_ROOT") is { Length: > 0 } d ? d : null;
+
+    /// <summary>
+    /// The TorchSharp device (<c>NLAYA_DEVICE</c>: cpu by default, cuda, cuda:1, mps). With a non-CPU
+    /// device the ONNX tests use the CUDA execution provider.
+    /// </summary>
+    public static string Device => Environment.GetEnvironmentVariable("NLAYA_DEVICE") is { Length: > 0 } d ? d : "cpu";
+
+    /// <summary>TorchSharp weight/compute precision (<c>NLAYA_DTYPE</c>: float32 by default, bfloat16, float16).</summary>
+    public static ScalarType DType => Environment.GetEnvironmentVariable("NLAYA_DTYPE") switch
+    {
+        null or "" or "float32" => ScalarType.Float32,
+        "bfloat16" => ScalarType.BFloat16,
+        "float16" => ScalarType.Float16,
+        var other => throw new InvalidOperationException($"NLAYA_DTYPE={other}: use float32, bfloat16 or float16"),
+    };
+
+    /// <summary>
+    /// Reduced precision can't match float32 Python to 1e-3. These bounds are what bf16/fp16 hold on the
+    /// fixture batches (Python's own fast path accepts ~0.05 on probabilities); argmax agreement is what matters.
+    /// </summary>
+    public static bool ReducedPrecision => DType != ScalarType.Float32;
 
     /// <summary>Fixture name -> (repo, subfolder), as make_fixtures.py generated them.</summary>
     public static readonly string[] Models = ["multilingual", "english", "typed_decisions"];
@@ -42,8 +65,18 @@ public sealed class ParityFixture : IDisposable
             var repo = f["repo"]!.GetValue<string>();
             var sub = f["subfolder"]?.GetValue<string>();
             var agent = backend == "onnx"
-                ? Laya.Load(onnxDir!, o => o.UseOnnx(onnxDir!))
-                : Laya.Load(repo, o => { o.Subfolder = sub; o.UseTorchSharp("cpu"); });
+                ? Laya.Load(onnxDir!, o => o.UseOnnx(onnxDir!, useCuda: Device != "cpu"))
+                : Laya.Load(repo, o =>
+                {
+                    o.Subfolder = sub;
+                    o.UseTorchSharp(t => { t.Device = Device; t.DType = DType; });
+                });
+            // Backends fall back to CPU when a device is missing; a GPU run that silently tested the CPU would prove nothing.
+            if (Device != "cpu" && !agent.Backend.Name.Contains(Device.Split(':')[0], StringComparison.Ordinal))
+            {
+                agent.Dispose();
+                Assert.Fail($"NLAYA_DEVICE={Device} but the {backend} backend is running as {agent.Backend.Name}");
+            }
             _current = (key, agent);
             return agent;
         }

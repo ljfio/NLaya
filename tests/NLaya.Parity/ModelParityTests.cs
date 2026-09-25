@@ -8,8 +8,11 @@ namespace NLaya.Parity;
 [TestCaseOrderer(typeof(ByModelOrderer))]
 public class ModelParityTests(ParityFixture fx)
 {
-    private const double LogitTol = 2e-3;
-    private const double ProbTol = 1e-3;
+    // Reduced precision (NLAYA_DTYPE) drifts from float32 Python: labels must still agree (JsonAssert
+    // compares strings exactly), probabilities within 0.1, and single hidden-state elements aren't compared.
+    private static double LogitTol => ParityFixture.ReducedPrecision ? 0.5 : 2e-3;
+    private static double ProbTol => ParityFixture.ReducedPrecision ? 0.1 : 1e-3;
+    private static double HiddenMeanTol => ParityFixture.ReducedPrecision ? 0.02 : 1e-3;
 
     public static TheoryData<string, string, int> Cases(string section)
     {
@@ -45,13 +48,13 @@ public class ModelParityTests(ParityFixture fx)
         var hidden = ((TorchSharpBackend)agent.Backend).EncodeHidden(batch);
         var d = agent.EncoderConfig!.HiddenSize;
         var head = b["hidden_head"]!.AsArray();
-        for (var r = 0; r < head.Count; r++)
+        for (var r = 0; r < head.Count && !ParityFixture.ReducedPrecision; r++)
             for (var t = 0; t < head[r]!.AsArray().Count; t++)
                 for (var c = 0; c < head[r]![t]!.AsArray().Count; c++)
                     Assert.Equal(head[r]![t]![c]!.GetValue<double>(), hidden[(r * batch.SeqLen + t) * d + c], 2e-3);
         // Mean |h| over real tokens only would differ from Python's (which includes padding), so
         // compare it over the whole padded tensor, as Python computed it.
-        Assert.Equal(b["hidden_mean_abs"]!.GetValue<double>(), hidden.Average(Math.Abs), 1e-3);
+        Assert.Equal(b["hidden_mean_abs"]!.GetValue<double>(), hidden.Average(Math.Abs), HiddenMeanTol);
     }
 
     [Theory]

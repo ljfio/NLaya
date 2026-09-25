@@ -123,15 +123,34 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
                 throw new ArgumentException($"question '{ids[i]}' options exceed head_max_len={headMaxLen}");
         }
 
-        var results = new LayaResult[states.Count];
-        for (var start = 0; start < states.Count; start += window)
+        List<EncodedState> Encode(int start)
         {
             var encoded = Enumerable.Range(start, Math.Min(window, states.Count - start))
                 .Select(i => new EncodedState(i, EncodeState(states[i], encodedQuestions, maxLen)))
                 .ToList();
-            if (sort) encoded = encoded.OrderBy(e => e.Rows.Max(r => r.Ids.Length)).ToList(); // stable
-            foreach (var pass in encoded.Chunk(perPass))
-                RunPass(pass, ids, questions, ctx.Lang, results);
+            return sort ? encoded.OrderBy(e => e.Rows.Max(r => r.Ids.Length)).ToList() : encoded; // stable
+        }
+
+        var results = new LayaResult[states.Count];
+        var current = Encode(0);
+        for (var start = 0; start < states.Count; start += window)
+        {
+            // Tokenize the next window on the thread pool while this one runs through the model, so
+            // an accelerator doesn't wait on the CPU between passes.
+            var nextStart = start + window;
+            var next = nextStart < states.Count ? Task.Run(() => Encode(nextStart)) : null;
+            try
+            {
+                foreach (var pass in current.Chunk(perPass))
+                    RunPass(pass, ids, questions, ctx.Lang, results);
+            }
+            catch
+            {
+                // Observe the prefetch so its own failure isn't reported as unobserved.
+                next?.ContinueWith(t => _ = t.Exception, TaskScheduler.Default);
+                throw;
+            }
+            if (next is not null) current = next.GetAwaiter().GetResult();
         }
         return results;
     }
@@ -163,6 +182,20 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
             rows.Add(SequenceBuilder.Assemble(Tokenizer, q, stateIds, maxLen, state.IsConversation));
         return rows;
     }
+
+    /// <summary>
+    /// Run one short forward pass straight through the backend (no hooks, no telemetry), so the first
+    /// real request doesn't pay for lazy setup: the CUDA context and kernel selection, or ONNX
+    /// Runtime's first-run work. The DI warm-up service calls this after loading.
+    /// </summary>
+    public void Warmup()
+    {
+        var question = SequenceBuilder.EncodeQuestion(Tokenizer, WarmupQuestion, Config.HeadMaxLen);
+        var row = SequenceBuilder.Assemble(Tokenizer, question, SequenceBuilder.EncodeState(Tokenizer, "warm-up"), Config.MaxLen, truncateLeft: false);
+        Backend.Run(EncodedBatch.Collate([row], Tokenizer.PadId));
+    }
+
+    private static readonly Question WarmupQuestion = Question.Noul("Is this a warm-up request?");
 
     public override string ToString() => $"LayaAgent(model_id='{ModelId}', backend={_backend?.Name ?? "disposed"})";
 

@@ -62,15 +62,16 @@ internal sealed class LayaNetwork : IDisposable
 
     /// <summary>
     /// input_ids / attention_mask: [B, L] int64; marker_pos [B, K] int64; marker_mask [B, K] bool;
-    /// qtype [B] int64. Returns logits [B, K] and act_logits [B, A], float32.
+    /// qtype [B] int64. Returns logits [B, K] and act_logits [B, A], float32. <paramref name="padded"/>
+    /// says whether any row is shorter than L (known on the host, so no device sync is needed to ask).
     /// </summary>
-    public (Tensor Logits, Tensor ActLogits) Forward(Tensor inputIds, Tensor attentionMask, Tensor markerPos, Tensor markerMask, Tensor qtype)
+    public (Tensor Logits, Tensor ActLogits) Forward(Tensor inputIds, Tensor attentionMask, Tensor markerPos, Tensor markerMask, Tensor qtype, bool padded)
     {
-        var h = Encode(inputIds, attentionMask);
-        return Head(h, attentionMask, markerPos, markerMask, qtype);
+        var h = Encode(inputIds, attentionMask, padded);
+        return Head(h, attentionMask, markerPos, markerMask, qtype, padded);
     }
 
-    public Tensor Encode(Tensor inputIds, Tensor attentionMask)
+    public Tensor Encode(Tensor inputIds, Tensor attentionMask, bool padded)
     {
         var (bsz, len) = (inputIds.shape[0], inputIds.shape[1]);
         var d = _cfg.HiddenSize;
@@ -79,15 +80,7 @@ internal sealed class LayaNetwork : IDisposable
         var h = W("encoder.embeddings.tok_embeddings.weight").index_select(0, inputIds.reshape(-1)).reshape(bsz, len, d);
         h = F.layer_norm(h, [d], W("encoder.embeddings.norm.weight"), B("encoder.embeddings.norm.bias"), eps);
 
-        // Additive masks: padding keys everywhere; sliding layers also drop keys beyond the window.
-        var minVal = _dtype == ScalarType.Float32 ? float.MinValue : -65504f;
-        var keyOk = attentionMask.to(ScalarType.Bool).reshape(bsz, 1, 1, len);
-        var globalMask = zeros([bsz, 1, 1, len], _dtype, Device).masked_fill(keyOk.logical_not(), minVal).expand(bsz, 1, len, len);
-        var pos = arange(len, device: Device);
-        var dist = (pos.unsqueeze(0) - pos.unsqueeze(1)).abs();
-        var outside = dist.gt(_cfg.LocalAttention / 2).reshape(1, 1, len, len);
-        var slidingMask = globalMask.masked_fill(outside, minVal);
-
+        var (globalMask, slidingMask) = EncoderMasks(padded ? PadMask(attentionMask, bsz, len) : null, bsz, len);
         for (var i = 0; i < _cfg.NumHiddenLayers; i++)
         {
             // Free each layer's intermediates (attention scores, MLP activations) as soon as the layer is
@@ -109,6 +102,34 @@ internal sealed class LayaNetwork : IDisposable
         return F.layer_norm(h, [d], W("encoder.final_norm.weight"), B("encoder.final_norm.bias"), eps);
     }
 
+    /// <summary>
+    /// Additive attention masks, as HF builds them: padding keys get the dtype's minimum everywhere,
+    /// and sliding layers also drop keys beyond the local window. A mask is null when it would mask
+    /// nothing, which lets SDPA pick its fused (flash) kernels, and without padding the sliding mask
+    /// is one [1, 1, L, L] band shared by the batch instead of a [B, 1, L, L] copy per row.
+    /// Pad keys stay finite (not a boolean mask): a padded query in a sliding layer can see only
+    /// padding, and an all-false boolean row gives NaN, which the value matmul would spread.
+    /// </summary>
+    private (Tensor? Global, Tensor? Sliding) EncoderMasks(Tensor? padded, long bsz, long len)
+    {
+        var minVal = MinValue;
+        // Keys farther than half the window from the query; none exist when len <= window/2 + 1.
+        var halfWindow = _cfg.LocalAttention / 2;
+        if (len <= halfWindow + 1) return (padded?.expand(bsz, 1, len, len), padded?.expand(bsz, 1, len, len));
+        var pos = arange(len, device: Device);
+        var outside = (pos.unsqueeze(0) - pos.unsqueeze(1)).abs().gt(halfWindow).reshape(1, 1, len, len);
+        var sliding = padded is null
+            ? zeros([1, 1, len, len], _dtype, Device).masked_fill(outside, minVal)
+            : padded.expand(bsz, 1, len, len).masked_fill(outside, minVal);
+        return (padded?.expand(bsz, 1, len, len), sliding);
+    }
+
+    /// <summary>[B, 1, 1, L]: 0 for real keys, the dtype's minimum for padding.</summary>
+    private Tensor PadMask(Tensor attentionMask, long bsz, long len) =>
+        zeros([bsz, 1, 1, len], _dtype, Device).masked_fill(attentionMask.to(ScalarType.Bool).logical_not().reshape(bsz, 1, 1, len), MinValue);
+
+    private float MinValue => _dtype == ScalarType.Float32 ? float.MinValue : -65504f;
+
     private Tensor Act(Tensor x) => _cfg.HiddenActivation switch
     {
         "gelu" => F.gelu(x),
@@ -118,7 +139,7 @@ internal sealed class LayaNetwork : IDisposable
         _ => throw new NotSupportedException($"hidden_activation '{_cfg.HiddenActivation}'"),
     };
 
-    private Tensor Attention(Tensor x, string p, Tensor mask, double theta, long len)
+    private Tensor Attention(Tensor x, string p, Tensor? mask, double theta, long len)
     {
         var (bsz, heads, dh) = (x.shape[0], _cfg.NumAttentionHeads, _cfg.HeadDim);
         var qkv = F.linear(x, W(p + "attn.Wqkv.weight"), B(p + "attn.Wqkv.bias")).view(bsz, len, 3, heads, dh);
@@ -173,14 +194,12 @@ internal sealed class LayaNetwork : IDisposable
         return (cos, sin);
     }
 
-    private (Tensor Logits, Tensor ActLogits) Head(Tensor h, Tensor attentionMask, Tensor markerPos, Tensor markerMask, Tensor qtype)
+    private (Tensor Logits, Tensor ActLogits) Head(Tensor h, Tensor attentionMask, Tensor markerPos, Tensor markerMask, Tensor qtype, bool padded)
     {
         var (bsz, len, d) = (h.shape[0], h.shape[1], h.shape[2]);
         h = h + W("type_emb.weight").index_select(0, qtype).unsqueeze(1);
 
-        var minVal = _dtype == ScalarType.Float32 ? float.MinValue : -65504f;
-        var padMask = zeros([bsz, 1, 1, len], _dtype, Device)
-            .masked_fill(attentionMask.to(ScalarType.Bool).logical_not().reshape(bsz, 1, 1, len), minVal);
+        var padMask = padded ? PadMask(attentionMask, bsz, len) : null;
         var heads = _headHeads;
         var dh = d / heads;
         for (var i = 0; i < _headLayers; i++)

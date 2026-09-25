@@ -11,7 +11,8 @@ namespace NLaya;
 /// <remarks>
 /// Spans: <c>laya.load</c> (a checkpoint load) and <c>laya.predict</c> (one agent call, over one or more
 /// states). Metrics: <c>laya.load.duration</c> and <c>laya.predict.duration</c> (seconds),
-/// <c>laya.predict.states</c>, <c>laya.predict.tokens</c> (input tokens) and <c>laya.route.decisions</c>.
+/// <c>laya.predict.states</c>, <c>laya.predict.tokens</c> (input tokens), <c>laya.route.decisions</c> and
+/// <c>laya.microbatch.size</c> (requests per <see cref="MicroBatchingPredictor"/> batch, untagged).
 /// Tags: <c>laya.model</c> (the model id, or the Router's checkpoint name for routes) and, on failure,
 /// <c>error.type</c>.
 /// </remarks>
@@ -32,6 +33,8 @@ public static class LayaTelemetry
         "laya.predict.states", "{state}", "States answered.");
     private static readonly Counter<long> PredictTokens = Meter.CreateCounter<long>(
         "laya.predict.tokens", "{token}", "Input tokens read by the model.");
+    private static readonly Histogram<int> MicroBatchSize = Meter.CreateHistogram<int>(
+        "laya.microbatch.size", "{request}", "Requests answered together by a MicroBatchingPredictor batch.");
     private static readonly Counter<long> RouteDecisions = Meter.CreateCounter<long>(
         "laya.route.decisions", "{decision}", "Router decisions, by checkpoint.");
 
@@ -86,6 +89,11 @@ public static class LayaTelemetry
         {
             if (PredictDuration.Enabled) PredictDuration.Record(Stopwatch.GetElapsedTime(started).TotalSeconds, Tags(model, error));
         }
+    }
+
+    internal static void MicroBatch(int size)
+    {
+        if (MicroBatchSize.Enabled) MicroBatchSize.Record(size);
     }
 
     internal static void Routed(string checkpoint) =>

@@ -33,7 +33,7 @@ public static class LayaServiceCollectionExtensions
         BindSettings(services, Options.Options.DefaultName, LayaSettings.SectionName);
         services.TryAddSingleton(sp => CreateAgent(sp, Options.Options.DefaultName, model, configure));
         services.TryAddSingleton<ILayaPredictor>(sp => sp.GetRequiredService<LayaAgent>());
-        AddWarmup(services, Options.Options.DefaultName, sp => sp.GetRequiredService<LayaAgent>());
+        AddWarmup(services, Options.Options.DefaultName, sp => sp.GetRequiredService<LayaAgent>().Warmup());
         return services;
     }
 
@@ -53,7 +53,7 @@ public static class LayaServiceCollectionExtensions
         BindSettings(services, key, $"{LayaSettings.SectionName}:{key}");
         services.TryAddKeyedSingleton(key, (sp, _) => CreateAgent(sp, key, model, configure));
         services.TryAddKeyedSingleton<ILayaPredictor>(key, (sp, k) => sp.GetRequiredKeyedService<LayaAgent>(k));
-        AddWarmup(services, key, sp => sp.GetRequiredKeyedService<LayaAgent>(key));
+        AddWarmup(services, key, sp => sp.GetRequiredKeyedService<LayaAgent>(key).Warmup());
         return services;
     }
 
@@ -71,8 +71,36 @@ public static class LayaServiceCollectionExtensions
         AddWarmup(services, RouterSettingsName, sp =>
         {
             var router = sp.GetRequiredService<Router>();
-            router.Preload(Settings(sp, RouterSettingsName).Preload?.Select(Checkpoints.Parse) ?? [router.Default]);
+            var keys = Settings(sp, RouterSettingsName).Preload?.Select(Checkpoints.Parse).ToList() ?? [router.Default];
+            router.Preload(keys);
+            foreach (var k in keys) router.Load(k).Warmup();
         });
+        return services;
+    }
+
+    /// <summary>
+    /// Put a <see cref="MicroBatchingPredictor"/> in front of the registered <see cref="ILayaPredictor"/>
+    /// (from <see cref="AddLaya(IServiceCollection, string?, Action{LayaOptions})"/> or <see cref="AddLayaRouter"/>),
+    /// so concurrent requests share forward passes. Call it after that registration. The agent or
+    /// router stays resolvable as itself, unbatched.
+    /// <code>services.AddLaya(Laya.MultilingualModel, o => o.UseTorchSharp("cuda")).AddLayaMicroBatching();</code>
+    /// </summary>
+    public static IServiceCollection AddLayaMicroBatching(this IServiceCollection services, Action<MicroBatchOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        var existing = services.LastOrDefault(d => d.ServiceType == typeof(ILayaPredictor) && !d.IsKeyedService)
+            ?? throw new InvalidOperationException("Register a predictor first: call AddLaya or AddLayaRouter before AddLayaMicroBatching.");
+        Func<IServiceProvider, object>? instance = existing.ImplementationInstance is { } i ? _ => i : null;
+        var inner = existing.ImplementationFactory ?? instance
+            ?? throw new InvalidOperationException("AddLayaMicroBatching needs the ILayaPredictor registered by AddLaya or AddLayaRouter.");
+        services.Remove(existing);
+        services.AddSingleton(sp =>
+        {
+            var options = new MicroBatchOptions();
+            configure?.Invoke(options);
+            return new MicroBatchingPredictor((ILayaPredictor)inner(sp), options);
+        });
+        services.AddSingleton<ILayaPredictor>(sp => sp.GetRequiredService<MicroBatchingPredictor>());
         return services;
     }
 

@@ -12,6 +12,16 @@ public sealed class OnnxOptions
     /// <summary>Use the CUDA execution provider (needs Microsoft.ML.OnnxRuntime.Gpu); falls back to CPU.</summary>
     public bool UseCuda { get; set; }
 
+    /// <summary>The CUDA device to run on when <see cref="UseCuda"/> is set.</summary>
+    public int CudaDeviceId { get; set; }
+
+    /// <summary>
+    /// On CUDA, keep the encoder's hidden states in device memory and hand them straight to
+    /// <c>head.onnx</c> (ONNX Runtime I/O binding), instead of copying <c>[rows, len, hidden]</c> to the
+    /// host and back between the two sessions. On by default; turn it off to rule it out when debugging.
+    /// </summary>
+    public bool KeepHiddenStatesOnDevice { get; set; } = true;
+
     /// <summary>
     /// Let ONNX Runtime send its own usage telemetry to Microsoft. Off by default: a library shouldn't
     /// phone home, and on macOS the upload thread can crash the process at exit (it locks a mutex that
