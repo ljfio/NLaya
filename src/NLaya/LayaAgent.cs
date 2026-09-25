@@ -92,25 +92,77 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
         return LayaTelemetry.Predict(ModelId, states.Count, () => RunWithHooks(active, ctx, raise, c => Infer(c, batchSize, sortByLength)));
     }
 
-    /// <summary>
-    /// Tokenize every state against every question, pack the rows into forward passes of at most
-    /// <paramref name="batchSize"/> states, and decode each pass. With <paramref name="sortByLength"/>,
-    /// states are grouped by length within windows of eight passes to cut padding; results keep input order.
-    /// </summary>
-    private IList<LayaResult> Infer(PredictContext ctx, int? batchSize, bool sortByLength)
+    private LayaResult[] Infer(PredictContext ctx, int? batchSize, bool sortByLength)
     {
-        var states = ctx.States;
-        if (states.Count == 0) return [];
+        var results = new LayaResult[ctx.States.Count];
         var ids = ctx.Questions.Keys.ToList();
         if (ids.Count == 0)
-            return states.Select(_ => new LayaResult(ModelId, new OrderedDictionary<string, Answer>(), Usage.Zero)).ToList();
-
+        {
+            Array.Fill(results, new LayaResult(ModelId, new OrderedDictionary<string, Answer>(), Usage.Zero));
+            return results;
+        }
         var questions = ids.Select(id => ctx.Questions[id]).ToList();
+        RunPasses(ctx.States, ids, questions, ctx.MaxLen, ctx.HeadMaxLen, batchSize, sortByLength, (pass, batch, output) =>
+        {
+            var act = Decoder.Softmax(output.ActLogits, output.Rows, output.ActOutputs);
+            var row = 0;
+            foreach (var state in pass)
+            {
+                var optionCounts = state.Rows.Select(r => r.Markers.Length).ToList();
+                var answers = Decoder.Decode(output, act, row, ids, questions, optionCounts, Temperatures, ctx.Lang);
+                var tokens = 0;
+                foreach (var n in batch.Lengths.AsSpan(row, state.Rows.Count)) tokens += n;
+                results[state.Index] = new LayaResult(ModelId, answers, new Usage(tokens));
+                row += state.Rows.Count;
+            }
+        });
+        return results;
+    }
+
+    /// <summary>
+    /// The raw option logits for each state and question, before temperature scaling: one
+    /// <c>float[]</c> per question, one entry per option (for a noul, [false, true]). This is what
+    /// temperature fitting and calibration metrics need (see <see cref="Calibration.TemperatureFitter"/>).
+    /// Hooks don't run, and nothing is recorded in telemetry.
+    /// </summary>
+    public IReadOnlyList<OrderedDictionary<string, float[]>> PredictLogits(IEnumerable<LayaState> states, Questions questions, BatchOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(states);
+        ArgumentNullException.ThrowIfNull(questions);
+        options ??= new BatchOptions();
+        var list = states.ToList();
+        var ids = questions.Keys.ToList();
+        var results = new OrderedDictionary<string, float[]>[list.Count];
+        for (var i = 0; i < results.Length; i++) results[i] = [];
+        if (ids.Count == 0) return results;
+        RunPasses(list, ids, ids.Select(id => questions[id]).ToList(), options.MaxLen, options.HeadMaxLen, options.BatchSize, options.SortByLength,
+            (pass, _, output) =>
+            {
+                var row = 0;
+                foreach (var state in pass)
+                {
+                    for (var j = 0; j < ids.Count; j++, row++)
+                        results[state.Index][ids[j]] = output.Logits.AsSpan(row * output.MaxMarkers, state.Rows[j].Markers.Length).ToArray();
+                }
+            });
+        return results;
+    }
+
+    /// <summary>
+    /// Tokenize every state against every question, pack the rows into forward passes of at most
+    /// <paramref name="batchSize"/> states, and hand each pass's output to <paramref name="read"/>. With
+    /// <paramref name="sortByLength"/>, states are grouped by length within windows of eight passes to cut
+    /// padding; <see cref="EncodedState.Index"/> keeps each state's input position.
+    /// </summary>
+    private void RunPasses(IList<LayaState> states, List<string> ids, List<Question> questions, int? maxLenOption, int? headMaxLenOption,
+        int? batchSize, bool sortByLength, Action<EncodedState[], EncodedBatch, BackendOutput> read)
+    {
+        if (states.Count == 0) return;
         for (var i = 0; i < ids.Count; i++)
             if (questions[i].Validate() is { } err) throw new ArgumentException($"question '{ids[i]}': {err}");
 
-        var maxLen = ctx.MaxLen ?? Config.MaxLen;
-        var headMaxLen = ctx.HeadMaxLen ?? Config.HeadMaxLen;
+        var maxLen = maxLenOption ?? Config.MaxLen;
+        var headMaxLen = headMaxLenOption ?? Config.HeadMaxLen;
         var perPass = batchSize is > 0 ? batchSize.Value : states.Count;
         var sort = sortByLength && perPass > 1 && perPass < states.Count;
         var window = sort ? perPass * 8 : perPass; // bounds how many tokenized states are held at once
@@ -131,7 +183,6 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
             return sort ? encoded.OrderBy(e => e.Rows.Max(r => r.Ids.Length)).ToList() : encoded; // stable
         }
 
-        var results = new LayaResult[states.Count];
         var current = Encode(0);
         for (var start = 0; start < states.Count; start += window)
         {
@@ -142,7 +193,10 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
             try
             {
                 foreach (var pass in current.Chunk(perPass))
-                    RunPass(pass, ids, questions, ctx.Lang, results);
+                {
+                    var batch = EncodedBatch.Collate(pass.SelectMany(s => s.Rows).ToList(), Tokenizer.PadId);
+                    read(pass, batch, Backend.Run(batch));
+                }
             }
             catch
             {
@@ -151,25 +205,6 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
                 throw;
             }
             if (next is not null) current = next.GetAwaiter().GetResult();
-        }
-        return results;
-    }
-
-    /// <summary>One forward pass over several states' question rows; writes each state's result by its input index.</summary>
-    private void RunPass(EncodedState[] states, List<string> ids, List<Question> questions, string? lang, LayaResult[] results)
-    {
-        var batch = EncodedBatch.Collate(states.SelectMany(s => s.Rows).ToList(), Tokenizer.PadId);
-        var output = Backend.Run(batch);
-        var act = Decoder.Softmax(output.ActLogits, output.Rows, output.ActOutputs);
-        var row = 0;
-        foreach (var state in states)
-        {
-            var optionCounts = state.Rows.Select(r => r.Markers.Length).ToList();
-            var answers = Decoder.Decode(output, act, row, ids, questions, optionCounts, Temperatures, lang);
-            var tokens = 0;
-            foreach (var n in batch.Lengths.AsSpan(row, state.Rows.Count)) tokens += n;
-            results[state.Index] = new LayaResult(ModelId, answers, new Usage(tokens));
-            row += state.Rows.Count;
         }
     }
 

@@ -12,9 +12,12 @@ Writes tests/NLaya.Testing/Fixtures/*.json:
   router_batch.json                                      Router.route_batch / predict_batch grouping (fake agents)
   structured.json                                        laya.structured: schema -> questions / SchemaError, projections
   decide.json                                            Agent.decide(..., return_details=True) on each checkpoint
+  calibration.json                                       ece_score, the harness's fit_temperature / hard_metrics /
+                                                         softmax_t and the fine-tuning notebook's fit_one_temp
   src/NLaya/Presets/presets.json                         laya.presets, embedded in the library
 
-Pass --only lang,email,router_batch,presets,tokenizers,sequences,models,structured,decide to regenerate a subset.
+Pass --only lang,email,router_batch,presets,tokenizers,sequences,models,structured,decide,calibration to regenerate a subset.
+`--only calibration` needs only numpy and torch (plus the laya checkout, for its sources).
 """
 import ast
 import glob
@@ -96,8 +99,24 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", default=None)
     ap.add_argument("--laya-tests", default=None, help="path to the laya repo's tests/ (for lang/email corpora)")
+    ap.add_argument("--laya-repo", default=None, help="path to the laya checkout (default: the parent of --laya-tests)")
     args = ap.parse_args()
     ONLY = set(args.only.split(",")) if args.only else None
+    os.makedirs(OUT, exist_ok=True)
+
+    def dump(name, obj):
+        with open(os.path.join(OUT, name), "w", encoding="utf-8") as f:
+            json.dump(obj, f, ensure_ascii=False, indent=1)
+        print("wrote", name)
+
+    if want("calibration"):
+        repo_dir = args.laya_repo or (os.path.dirname(os.path.abspath(args.laya_tests)) if args.laya_tests else None)
+        if repo_dir is None:
+            raise SystemExit("--laya-repo (or --laya-tests) is needed for the calibration sources")
+        calibration_fixture(dump, repo_dir)
+        if ONLY == {"calibration"}:
+            return 0
+
     import numpy as np
     import torch
     from huggingface_hub import hf_hub_download
@@ -106,13 +125,6 @@ def main():
     import laya
     from laya.common import build_sequence, collate_items, serialize_state, QTYPES
     from laya.agent import Agent
-
-    os.makedirs(OUT, exist_ok=True)
-
-    def dump(name, obj):
-        with open(os.path.join(OUT, name), "w", encoding="utf-8") as f:
-            json.dump(obj, f, ensure_ascii=False, indent=1)
-        print("wrote", name)
 
     tests_dir = args.laya_tests
     if tests_dir is None and (want("lang") or want("email")):
@@ -535,6 +547,116 @@ def data_resources():
         "device_footer": pat(email._DEVICE_FOOTER),
         "disclaimer": pat(email._DISCLAIMER),
     })
+
+
+def _functions(source, names, filename):
+    """Compile the named top-level functions out of `source`, so fixtures run laya's own code."""
+    import ast
+    tree = ast.parse(source, filename)
+    defs = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
+    missing = set(names) - {d.name for d in defs}
+    if missing:
+        raise SystemExit("%s: no %s" % (filename, ", ".join(sorted(missing))))
+    return ast.Module(body=defs, type_ignores=[])
+
+
+def calibration_sources(repo_dir):
+    """laya's calibration code, from where it lives: laya/common.py (ece_score), the benchmark
+    notebook builder (fit_temperature, hard_metrics and helpers, inside a notebook cell string) and
+    the fine-tuning notebook (fit_one_temp, inside its %%writefile training script)."""
+    import ast
+    import math
+    import numpy as np
+    import torch
+    env = {"np": np, "math": math, "torch": torch}
+
+    common = os.path.join(repo_dir, "laya", "common.py")
+    with open(common, encoding="utf-8") as f:
+        exec(compile(_functions(f.read(), {"ece_score"}, common), common, "exec"), env)
+
+    bench = os.path.join(repo_dir, "research", "scripts", "build_benchmark_nb.py")
+    def unmagic(text):  # a cell may start with %%writefile
+        return text.split("\n", 1)[1] if text.lstrip().startswith("%%") else text
+
+    def defines(text, name):
+        try:
+            return any(isinstance(n, ast.FunctionDef) and n.name == name for n in ast.parse(unmagic(text)).body)
+        except SyntaxError:
+            return False
+    with open(bench, encoding="utf-8") as f:
+        cells = [unmagic(n.value.lstrip("\n")) for n in ast.walk(ast.parse(f.read(), bench))
+                 if isinstance(n, ast.Constant) and isinstance(n.value, str) and defines(n.value.lstrip("\n"), "fit_temperature")]
+    names = {"fit_temperature", "hard_metrics", "macro_f1", "aurc", "softmax_t"}
+    harness = {"np": np, "math": math}
+    exec(compile(_functions(cells[0], names | {"ece_score"}, bench), bench, "exec"), harness)
+    env.update({k: harness[k] for k in names})
+
+    nb = os.path.join(repo_dir, "notebooks", "laya_finetune_typed_decisions_2xT4_kaggle.ipynb")
+    with open(nb, encoding="utf-8") as f:
+        script, = ["".join(c["source"]) for c in json.load(f)["cells"] if "".join(c["source"]).startswith("%%writefile ")]
+    script = script.split("\n", 1)[1]
+    exec(compile(_functions(script, {"fit_one_temp"}, nb), nb, "exec"), env)
+    return env
+
+
+def calibration_fixture(dump, repo_dir):
+    import numpy as np
+    ref = calibration_sources(repo_dir)
+    rng = np.random.RandomState(20260925)
+    types = ["choice", "score", "noul"]
+
+    def sample_set(n, scale, noise, soft=False):
+        out = []
+        for _ in range(n):
+            qt = int(rng.randint(0, 3))
+            k = 2 if qt == 2 else int(rng.randint(2, 13))
+            gold = int(rng.randint(0, k))
+            z = rng.normal(0, 1, k)
+            z[gold] += 1.5
+            z = z * scale + rng.normal(0, noise, k)
+            # Labels are right about as often as the unscaled logits say, so the best T is ~scale.
+            label = gold if rng.rand() < 0.75 else int(rng.randint(0, k))
+            target = rng.dirichlet(np.ones(k) * 0.5) if soft else np.eye(k)[label]
+            out.append({"type": types[qt], "logits": [float(np.float32(x)) for x in z],
+                        "target": [float(np.float32(x)) for x in target], "gold": label})
+        return out
+
+    fits = []
+    for name, n, scale, noise, soft in (
+            ("too_few", 8, 2.0, 0.3, False), ("notebook_only", 15, 3.0, 0.3, False),
+            ("overconfident", 80, 4.0, 0.5, False), ("underconfident", 80, 0.4, 0.1, False),
+            ("large", 300, 2.5, 0.8, False), ("soft_targets", 60, 2.0, 0.3, True)):
+        samples = sample_set(n, scale, noise, soft)
+        one = [(s["logits"], s["target"]) for s in samples]
+        case = {"name": name, "samples": samples, "fit_one_temp": ref["fit_one_temp"](one)}
+        if not soft:
+            case["fit_temperature"] = ref["fit_temperature"]([(s["logits"], s["gold"]) for s in samples])
+        fits.append(case)
+
+    ece = []
+    edges = np.linspace(0, 1, 16)
+    for n in (0, 1, 7, 50, 400):
+        conf = rng.rand(n)
+        conf[: min(n, 3)] = [0.0, 1.0, edges[4]][: min(n, 3)]
+        corr = (rng.rand(n) < conf).astype(float)
+        e = ref["ece_score"](conf, corr)
+        ece.append({"confidence": conf.tolist(), "correct": corr.tolist(), "ece": None if e != e else e})  # NaN isn't JSON
+
+    metrics = []
+    for n, k in ((1, 3), (40, 4), (250, 6)):
+        rows = []
+        for _ in range(n):
+            p = rng.dirichlet(np.ones(k) * 0.7)
+            rows.append((int(rng.randint(0, k)) if rng.rand() < 0.4 else int(np.argmax(p)), p))
+        m = ref["hard_metrics"](rows)
+        metrics.append({"rows": [{"gold": g, "probabilities": p.tolist()} for g, p in rows], "metrics": m})
+
+    softmax = []
+    for t in (0.0, 0.5, 1.0, 3.7):
+        z = [float(np.float32(x)) for x in rng.normal(0, 3, 5)]
+        softmax.append({"logits": z, "temperature": t, "probs": ref["softmax_t"](z, t).tolist()})
+
+    dump("calibration.json", {"fits": fits, "ece": ece, "hard_metrics": metrics, "softmax_t": softmax})
 
 
 def presets_fixture():

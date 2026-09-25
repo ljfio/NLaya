@@ -19,5 +19,13 @@ uv run --python 3.12 --with ./laya --with tokenizers tools/fixtures/make_fixture
 # a subset: --only tokenizers,sequences,lang,email,presets,models
 ```
 
+`calibration.json` needs only numpy and torch: it compiles laya's calibration functions out of the
+checkout (`ece_score` from `laya/common.py`, `fit_temperature` / `hard_metrics` from the benchmark
+notebook builder, `fit_one_temp` from the fine-tuning notebook) without installing laya:
+
+```bash
+uv run --python 3.12 --with numpy --with torch tools/fixtures/make_fixtures.py --only calibration --laya-repo laya
+```
+
 To move to a newer laya, update `LAYA_COMMIT`, regenerate, and run both test projects: any
 behaviour change shows up as a fixture mismatch.
