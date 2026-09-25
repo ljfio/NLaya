@@ -496,3 +496,6 @@ $RECYCLE.BIN/
 
 # Agent worktrees
 /.claude/worktrees/
+
+# Benchmark suites exported by benchmarks/export_suites.py (datasets have their own licenses)
+/benchmarks/suites/

@@ -191,6 +191,26 @@ between chunks. `Router.RouteBatch` / `PredictBatch` port Python's `route_batch`
 requests are grouped by checkpoint, then by question set, and Router hooks still run per request.
 `Router.PredictStreamAsync` streams `RouteRequest`s the same way.
 
+### Many concurrent callers: micro-batching
+
+A web API usually gets one state per request. `MicroBatchingPredictor` collects concurrent requests for a
+couple of milliseconds and answers those with the same questions in one `PredictBatch`, which is how a GPU
+gets its throughput:
+
+```csharp
+builder.Services.AddLaya(Laya.MultilingualModel, o => o.UseTorchSharp("cuda")).AddLayaMicroBatching();
+// or: var batched = new MicroBatchingPredictor(agent, new MicroBatchOptions { MaxDelay = TimeSpan.FromMilliseconds(2) });
+```
+
+Answers match unbatched ones. Hooks see one call per batch, and `laya.microbatch.size` records batch sizes.
+
+## Accuracy, calibration and speed
+
+[`docs/tuning.md`](docs/tuning.md) covers choosing a checkpoint, measuring it on laya's benchmark suites
+(`benchmarks/NLaya.Eval`), fitting temperatures (`NLaya.Calibration.TemperatureFitter`, from raw logits via
+`agent.PredictLogits`), fine-tuning with laya's notebook to reach the published typed-decisions and
+TypeSafe Jev comparisons, and GPU settings (bf16, batching, warm-up, ONNX on CUDA).
+
 ## ML.NET
 
 `NLaya.ML` adds Laya as a pipeline step over an `IDataView` (a CSV, a database query, any ML.NET data):
@@ -250,7 +270,7 @@ builder.Services.AddOpenTelemetry()
 ```
 
 Spans are `laya.load` and `laya.predict`. Metrics are `laya.load.duration`, `laya.predict.duration`
-(seconds), `laya.predict.states`, `laya.predict.tokens` and `laya.route.decisions`, all tagged with
+(seconds), `laya.predict.states`, `laya.predict.tokens`, `laya.route.decisions` and `laya.microbatch.size`, all but the last tagged with
 `laya.model`. Failures set the span status and an `error.type` tag. Hooks remain the place for
 per-call logic such as caching or redaction.
 
@@ -352,6 +372,8 @@ upload at process exit could also crash the process on macOS (see `docs/next-ste
 | `tests/NLaya.Parity` | Model parity for all three checkpoints on both backends, and an end-to-end guardrail test |
 | `tests/NLaya.Testing` | Shared by both test projects: the golden fixtures from `make_fixtures.py`, fixture loading and JSON comparison helpers |
 | `tools/fixtures` | Regenerates the fixtures and the embedded tables from the Python reference |
+| `benchmarks/NLaya.Eval` | Accuracy, calibration (and temperature refits) and latency on laya's benchmark suites, exported by `benchmarks/export_suites.py` |
+| `benchmarks/NLaya.Benchmarks` | BenchmarkDotNet latency: one question, ten, a batch, and micro-batched concurrent requests |
 | `samples/NLaya.Quickstart` | A single agent, then the Router across all three checkpoints |
 | `samples/NLaya.ChatGuardrail` | Guardrail, router and tool over echo chat clients (no API key) |
 | `samples/NLaya.WebApi` | Minimal API: `POST /triage` through the DI-registered Router |
@@ -366,7 +388,13 @@ before and after that, including tokenization, prompt layout, calibration and de
 dotnet test --project tests/NLaya.Tests                    # tokenizers, prompts, routing, email vs Python (tokenizer cases need the models cached)
 NLAYA_PARITY=1 dotnet test --project tests/NLaya.Parity    # all three checkpoints vs Python (needs: hf download convaiinnovations/laya and convaiinnovations/laya-multilingual)
 NLAYA_PARITY=1 NLAYA_ONNX_ROOT=./onnx dotnet test --project tests/NLaya.Parity   # + ONNX (onnx/<name>/)
+NLAYA_PARITY=1 NLAYA_DEVICE=mps NLAYA_DTYPE=bfloat16 dotnet test --project tests/NLaya.Parity   # on a GPU / in reduced precision
 ```
+
+`NLAYA_DEVICE` (cpu, cuda, mps) and `NLAYA_DTYPE` (float32, bfloat16, float16) run parity on another device
+or precision; reduced precision checks that labels agree and probabilities stay within 0.1. On CUDA, build
+with `-p:TorchSharpRuntime=TorchSharp-cuda-linux -p:OnnxRuntimeGpu=true` (the manual `parity-gpu` workflow
+does this on a self-hosted runner).
 
 The golden fixtures come from the Python reference at the commit in `tools/fixtures/LAYA_COMMIT`.
 `tools/fixtures/make_fixtures.py` regenerates them, along with the embedded tables.

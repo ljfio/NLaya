@@ -11,6 +11,7 @@ this page first: it has the shared context the others assume.
 | 4 | [04-reduce-custom-code.md](04-reduce-custom-code.md) | ONNX exports on the Hub, upstream tokenizer gaps (4a, .NET 10 only, is done) | Any time |
 | 5 | ML.NET pipeline stage | `NLaya.ML`: `mlContext.Transforms.Laya(...)` over an `IDataView` | Done; see "ML.NET" in the root `README.md` |
 | 6 | NuGet packages and CI | MinVer versions, `build.yml`, `parity.yml`, `release.yml` with trusted publishing | Done; see "Before the first release" |
+| 7 | GPU and tuning | mask-free unpadded passes, micro-batching, warm-up, ONNX I/O binding, GPU parity switches, temperature fitting, `NLaya.Eval`, `NLaya.Benchmarks` | Done; see [`docs/tuning.md`](../tuning.md). Open: run `parity-gpu` and the ONNX CUDA path on an NVIDIA machine; port `predict_shortlist` |
 
 Steps 1, 2, 5 and 6 are described in the root `README.md` ("Microsoft.Extensions.AI", "Dependency
 injection", "ML.NET", "Packages and releases"). Their planning docs were removed once done; they're in git history.
@@ -33,7 +34,7 @@ https://github.com/ljfio/NLaya.
   `LayaGuardrail` and `LayaRouter`, plus `AIFunction` tools and DI registration), `NLaya.ML` (an ML.NET
   pipeline stage), NuGet packaging and GitHub Actions. Everything targets .NET 10 only.
 - **Not ported yet:** `decide(questions=...)` pass-through (use `Predict`) and the pydantic helpers,
-  `shortlist`, `LayaTriage` / `LayaEvaluator`
+  `shortlist` (`predict_shortlist`, which needs an embedding model), `LayaTriage` / `LayaEvaluator`
   as chat middleware (`LayaTools.Triage` covers triage as a tool), remote `base_url` calls, the HTTP
   server, MCP, CLI and training.
 - **Layout:** see "Project layout" in the root `README.md`. The library is one type per file.

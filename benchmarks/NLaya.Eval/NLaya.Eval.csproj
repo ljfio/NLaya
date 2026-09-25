@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <!-- The libtorch runtime; on a CUDA machine pass -p:TorchSharpRuntime=TorchSharp-cuda-linux (or -windows). -->
+    <TorchSharpRuntime Condition="'$(TorchSharpRuntime)' == ''">TorchSharp-cpu</TorchSharpRuntime>
+    <OnnxRuntimeGpu Condition="'$(OnnxRuntimeGpu)' == ''">false</OnnxRuntimeGpu>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/NLaya/NLaya.csproj" />
+    <ProjectReference Include="../../src/NLaya.TorchSharp/NLaya.TorchSharp.csproj" />
+    <ProjectReference Include="../../src/NLaya.Onnx/NLaya.Onnx.csproj" />
+    <PackageReference Include="$(TorchSharpRuntime)" Version="0.107.0" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.30.0" Condition="'$(OnnxRuntimeGpu)' == 'true'" />
+  </ItemGroup>
+</Project>

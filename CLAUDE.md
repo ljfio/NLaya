@@ -20,7 +20,7 @@ and layout, and `docs/next-steps/README.md` for current status, planned work and
   wording, and the byte-exact model input (`PythonJson`, `PyStr`, `PyValue`, internal).
 - **No downloads in the library.** Models come from `hf download` into the HF cache (`HfCache`).
 - **One type per file**, file named after the type. Match the surrounding comment style: XML docs
-  on public members, short "why" comments.
+  on public members (enforced for `src/` by CS1591), short "why" comments.
 
 ## Conventions
 
@@ -47,7 +47,10 @@ dotnet build NLaya.slnx                                 # TreatWarningsAsErrors;
 dotnet test --project tests/NLaya.Tests                 # unit + fixture parity (xUnit v3 on MTP: use --project)
 NLAYA_PARITY=1 dotnet test --project tests/NLaya.Parity # model parity; needs `hf download convaiinnovations/laya` and `.../laya-multilingual`
 NLAYA_PARITY=1 NLAYA_ONNX_ROOT=$PWD/onnx dotnet test --project tests/NLaya.Parity   # + ONNX exports in onnx/<name>/
+NLAYA_PARITY=1 NLAYA_DEVICE=mps dotnet test --project tests/NLaya.Parity            # on a GPU (mps here, cuda on Linux); NLAYA_DTYPE=bfloat16 too
 ```
+
+Accuracy and calibration against laya's published numbers: `benchmarks/NLaya.Eval` (see `docs/tuning.md`).
 
 Run both test projects before committing changes to tokenization, prompts, decoding or backends.
 
