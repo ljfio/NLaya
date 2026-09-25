@@ -1,0 +1,1102 @@
+{
+ "schema": {
+  "type": "object",
+  "properties": {
+   "department": {
+    "enum": [
+     "billing",
+     "support",
+     "sales"
+    ],
+    "description": "Which team should handle `body`?"
+   },
+   "urgency": {
+    "type": "integer",
+    "minimum": 1,
+    "maximum": 3,
+    "description": "How urgent is this?"
+   },
+   "refund_requested": {
+    "type": "boolean",
+    "description": "Does the sender ask for money back?"
+   },
+   "priority": {
+    "enum": [
+     1,
+     2,
+     3
+    ]
+   },
+   "needs_human": {
+    "type": "boolean"
+   }
+  }
+ },
+ "cases": [
+  {
+   "model": "multilingual",
+   "state": {
+    "body": "I was charged twice for invoice 4411. Please refund me today."
+   },
+   "details": {
+    "values": {
+     "department": "billing",
+     "urgency": 2,
+     "refund_requested": true,
+     "priority": 2,
+     "needs_human": false
+    },
+    "confidence": {
+     "department": 1.0,
+     "urgency": 0.0058,
+     "refund_requested": 0.9727,
+     "priority": 0.0567,
+     "needs_human": 0.999
+    },
+    "probabilities": {
+     "department": {
+      "billing": 1.0,
+      "support": 0.0,
+      "sales": 0.0
+     },
+     "urgency": {
+      "0": 0.3044,
+      "1": 0.387,
+      "2": 0.3086
+     },
+     "refund_requested": {
+      "false": 0.0273,
+      "true": 0.9727
+     },
+     "priority": {
+      "1": 0.2775,
+      "2": 0.5004,
+      "3": 0.2221
+     },
+     "needs_human": {
+      "false": 0.999,
+      "true": 0.001
+     }
+    },
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "billing",
+      "probabilities": {
+       "billing": 1.0,
+       "support": 0.0,
+       "sales": 0.0
+      },
+      "confidence": 1.0,
+      "answer_confidence": 1.0,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "urgency": {
+      "type": "score",
+      "score": 1.0042,
+      "legend": {
+       "0": "1",
+       "1": "2",
+       "2": "3"
+      },
+      "probabilities": {
+       "0": 0.3044,
+       "1": 0.387,
+       "2": 0.3086
+      },
+      "confidence": 0.0058,
+      "answer_confidence": 0.387,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "refund_requested": {
+      "type": "noul",
+      "noul": 0.9727,
+      "confidence": 0.9727,
+      "answer_confidence": 0.9727,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "priority": {
+      "type": "choice",
+      "choice": "2",
+      "probabilities": {
+       "1": 0.2775,
+       "2": 0.5004,
+       "3": 0.2221
+      },
+      "confidence": 0.0567,
+      "answer_confidence": 0.5004,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "needs_human": {
+      "type": "noul",
+      "noul": 0.001,
+      "confidence": 0.999,
+      "answer_confidence": 0.999,
+      "action": {
+       "act_probability": 1.0
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 254,
+     "output_tokens": 0
+    },
+    "routing": null
+   }
+  },
+  {
+   "model": "multilingual",
+   "state": "The app crashes every time I open the settings page, can someone look at it?",
+   "details": {
+    "values": {
+     "department": "support",
+     "urgency": 1,
+     "refund_requested": false,
+     "priority": 3,
+     "needs_human": false
+    },
+    "confidence": {
+     "department": 0.4408,
+     "urgency": 0.1191,
+     "refund_requested": 1.0,
+     "priority": 0.1605,
+     "needs_human": 0.9993
+    },
+    "probabilities": {
+     "department": {
+      "billing": 0.0941,
+      "support": 0.8117,
+      "sales": 0.0943
+     },
+     "urgency": {
+      "0": 0.5669,
+      "1": 0.2762,
+      "2": 0.1569
+     },
+     "refund_requested": {
+      "false": 1.0,
+      "true": 0.0
+     },
+     "priority": {
+      "1": 0.3393,
+      "2": 0.1005,
+      "3": 0.5602
+     },
+     "needs_human": {
+      "false": 0.9993,
+      "true": 0.0007
+     }
+    },
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "support",
+      "probabilities": {
+       "billing": 0.0941,
+       "support": 0.8117,
+       "sales": 0.0943
+      },
+      "confidence": 0.4408,
+      "answer_confidence": 0.8117,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "urgency": {
+      "type": "score",
+      "score": 0.5901,
+      "legend": {
+       "0": "1",
+       "1": "2",
+       "2": "3"
+      },
+      "probabilities": {
+       "0": 0.5669,
+       "1": 0.2762,
+       "2": 0.1569
+      },
+      "confidence": 0.1191,
+      "answer_confidence": 0.5669,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "refund_requested": {
+      "type": "noul",
+      "noul": 0.0,
+      "confidence": 1.0,
+      "answer_confidence": 1.0,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "priority": {
+      "type": "choice",
+      "choice": "3",
+      "probabilities": {
+       "1": 0.3393,
+       "2": 0.1005,
+       "3": 0.5602
+      },
+      "confidence": 0.1605,
+      "answer_confidence": 0.5602,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "needs_human": {
+      "type": "noul",
+      "noul": 0.0007,
+      "confidence": 0.9993,
+      "answer_confidence": 0.9993,
+      "action": {
+       "act_probability": 1.0
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 229,
+     "output_tokens": 0
+    },
+    "routing": null
+   }
+  },
+  {
+   "model": "multilingual",
+   "state": {
+    "body": "Mein Konto wurde zweimal belastet – bitte erstatten Sie den Betrag."
+   },
+   "details": {
+    "values": {
+     "department": "billing",
+     "urgency": 3,
+     "refund_requested": true,
+     "priority": 2,
+     "needs_human": false
+    },
+    "confidence": {
+     "department": 0.9666,
+     "urgency": 0.3765,
+     "refund_requested": 0.953,
+     "priority": 0.7513,
+     "needs_human": 0.9668
+    },
+    "probabilities": {
+     "department": {
+      "billing": 0.9945,
+      "support": 0.0045,
+      "sales": 0.001
+     },
+     "urgency": {
+      "0": 0.0198,
+      "1": 0.2813,
+      "2": 0.6988
+     },
+     "refund_requested": {
+      "false": 0.047,
+      "true": 0.953
+     },
+     "priority": {
+      "1": 0.0153,
+      "2": 0.9359,
+      "3": 0.0488
+     },
+     "needs_human": {
+      "false": 0.9668,
+      "true": 0.0332
+     }
+    },
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "billing",
+      "probabilities": {
+       "billing": 0.9945,
+       "support": 0.0045,
+       "sales": 0.001
+      },
+      "confidence": 0.9666,
+      "answer_confidence": 0.9945,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "urgency": {
+      "type": "score",
+      "score": 1.679,
+      "legend": {
+       "0": "1",
+       "1": "2",
+       "2": "3"
+      },
+      "probabilities": {
+       "0": 0.0198,
+       "1": 0.2813,
+       "2": 0.6988
+      },
+      "confidence": 0.3765,
+      "answer_confidence": 0.6988,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "refund_requested": {
+      "type": "noul",
+      "noul": 0.953,
+      "confidence": 0.953,
+      "answer_confidence": 0.953,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "priority": {
+      "type": "choice",
+      "choice": "2",
+      "probabilities": {
+       "1": 0.0153,
+       "2": 0.9359,
+       "3": 0.0488
+      },
+      "confidence": 0.7513,
+      "answer_confidence": 0.9359,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "needs_human": {
+      "type": "noul",
+      "noul": 0.0332,
+      "confidence": 0.9668,
+      "answer_confidence": 0.9668,
+      "action": {
+       "act_probability": 1.0
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 239,
+     "output_tokens": 0
+    },
+    "routing": null
+   }
+  },
+  {
+   "model": "english",
+   "state": {
+    "body": "I was charged twice for invoice 4411. Please refund me today."
+   },
+   "details": {
+    "values": {
+     "department": "billing",
+     "urgency": 1,
+     "refund_requested": true,
+     "priority": 2,
+     "needs_human": false
+    },
+    "confidence": {
+     "department": 0.6936,
+     "urgency": 0.3357,
+     "refund_requested": 0.9424,
+     "priority": 0.2953,
+     "needs_human": 0.9999
+    },
+    "probabilities": {
+     "department": {
+      "billing": 0.9183,
+      "support": 0.0514,
+      "sales": 0.0302
+     },
+     "urgency": {
+      "0": 0.6085,
+      "1": 0.3775,
+      "2": 0.014
+     },
+     "refund_requested": {
+      "false": 0.0576,
+      "true": 0.9424
+     },
+     "priority": {
+      "1": 0.36,
+      "2": 0.6101,
+      "3": 0.0299
+     },
+     "needs_human": {
+      "false": 0.9999,
+      "true": 0.0001
+     }
+    },
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "billing",
+      "probabilities": {
+       "billing": 0.9183,
+       "support": 0.0514,
+       "sales": 0.0302
+      },
+      "confidence": 0.6936,
+      "answer_confidence": 0.9183,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "urgency": {
+      "type": "score",
+      "score": 0.4055,
+      "legend": {
+       "0": "1",
+       "1": "2",
+       "2": "3"
+      },
+      "probabilities": {
+       "0": 0.6085,
+       "1": 0.3775,
+       "2": 0.014
+      },
+      "confidence": 0.3357,
+      "answer_confidence": 0.6085,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "refund_requested": {
+      "type": "noul",
+      "noul": 0.9424,
+      "confidence": 0.9424,
+      "answer_confidence": 0.9424,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "priority": {
+      "type": "choice",
+      "choice": "2",
+      "probabilities": {
+       "1": 0.36,
+       "2": 0.6101,
+       "3": 0.0299
+      },
+      "confidence": 0.2953,
+      "answer_confidence": 0.6101,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "needs_human": {
+      "type": "noul",
+      "noul": 0.0001,
+      "confidence": 0.9999,
+      "answer_confidence": 0.9999,
+      "action": {
+       "act_probability": 1.0
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 230,
+     "output_tokens": 0
+    },
+    "routing": null
+   }
+  },
+  {
+   "model": "english",
+   "state": "The app crashes every time I open the settings page, can someone look at it?",
+   "details": {
+    "values": {
+     "department": "support",
+     "urgency": 1,
+     "refund_requested": false,
+     "priority": 1,
+     "needs_human": false
+    },
+    "confidence": {
+     "department": 0.5541,
+     "urgency": 0.4127,
+     "refund_requested": 0.9999,
+     "priority": 0.1755,
+     "needs_human": 0.9744
+    },
+    "probabilities": {
+     "department": {
+      "billing": 0.0542,
+      "support": 0.8637,
+      "sales": 0.0821
+     },
+     "urgency": {
+      "0": 0.7303,
+      "1": 0.2532,
+      "2": 0.0165
+     },
+     "refund_requested": {
+      "false": 0.9999,
+      "true": 0.0001
+     },
+     "priority": {
+      "1": 0.5185,
+      "2": 0.4035,
+      "3": 0.0781
+     },
+     "needs_human": {
+      "false": 0.9744,
+      "true": 0.0256
+     }
+    },
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "support",
+      "probabilities": {
+       "billing": 0.0542,
+       "support": 0.8637,
+       "sales": 0.0821
+      },
+      "confidence": 0.5541,
+      "answer_confidence": 0.8637,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "urgency": {
+      "type": "score",
+      "score": 0.2863,
+      "legend": {
+       "0": "1",
+       "1": "2",
+       "2": "3"
+      },
+      "probabilities": {
+       "0": 0.7303,
+       "1": 0.2532,
+       "2": 0.0165
+      },
+      "confidence": 0.4127,
+      "answer_confidence": 0.7303,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "refund_requested": {
+      "type": "noul",
+      "noul": 0.0001,
+      "confidence": 0.9999,
+      "answer_confidence": 0.9999,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "priority": {
+      "type": "choice",
+      "choice": "1",
+      "probabilities": {
+       "1": 0.5185,
+       "2": 0.4035,
+       "3": 0.0781
+      },
+      "confidence": 0.1755,
+      "answer_confidence": 0.5185,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "needs_human": {
+      "type": "noul",
+      "noul": 0.0256,
+      "confidence": 0.9744,
+      "answer_confidence": 0.9744,
+      "action": {
+       "act_probability": 1.0
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 220,
+     "output_tokens": 0
+    },
+    "routing": null
+   }
+  },
+  {
+   "model": "english",
+   "state": {
+    "body": "Mein Konto wurde zweimal belastet – bitte erstatten Sie den Betrag."
+   },
+   "details": {
+    "values": {
+     "department": "billing",
+     "urgency": 2,
+     "refund_requested": false,
+     "priority": 2,
+     "needs_human": false
+    },
+    "confidence": {
+     "department": 0.5302,
+     "urgency": 0.1908,
+     "refund_requested": 0.7007,
+     "priority": 0.1288,
+     "needs_human": 0.9595
+    },
+    "probabilities": {
+     "department": {
+      "billing": 0.8419,
+      "support": 0.126,
+      "sales": 0.032
+     },
+     "urgency": {
+      "0": 0.382,
+      "1": 0.5452,
+      "2": 0.0727
+     },
+     "refund_requested": {
+      "false": 0.7007,
+      "true": 0.2993
+     },
+     "priority": {
+      "1": 0.3323,
+      "2": 0.5431,
+      "3": 0.1246
+     },
+     "needs_human": {
+      "false": 0.9595,
+      "true": 0.0405
+     }
+    },
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "billing",
+      "probabilities": {
+       "billing": 0.8419,
+       "support": 0.126,
+       "sales": 0.032
+      },
+      "confidence": 0.5302,
+      "answer_confidence": 0.8419,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "urgency": {
+      "type": "score",
+      "score": 0.6907,
+      "legend": {
+       "0": "1",
+       "1": "2",
+       "2": "3"
+      },
+      "probabilities": {
+       "0": 0.382,
+       "1": 0.5452,
+       "2": 0.0727
+      },
+      "confidence": 0.1908,
+      "answer_confidence": 0.5452,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "refund_requested": {
+      "type": "noul",
+      "noul": 0.2993,
+      "confidence": 0.7007,
+      "answer_confidence": 0.7007,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "priority": {
+      "type": "choice",
+      "choice": "2",
+      "probabilities": {
+       "1": 0.3323,
+       "2": 0.5431,
+       "3": 0.1246
+      },
+      "confidence": 0.1288,
+      "answer_confidence": 0.5431,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "needs_human": {
+      "type": "noul",
+      "noul": 0.0405,
+      "confidence": 0.9595,
+      "answer_confidence": 0.9595,
+      "action": {
+       "act_probability": 1.0
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 270,
+     "output_tokens": 0
+    },
+    "routing": null
+   }
+  },
+  {
+   "model": "typed_decisions",
+   "state": {
+    "body": "I was charged twice for invoice 4411. Please refund me today."
+   },
+   "details": {
+    "values": {
+     "department": "billing",
+     "urgency": 2,
+     "refund_requested": true,
+     "priority": 2,
+     "needs_human": false
+    },
+    "confidence": {
+     "department": 0.3175,
+     "urgency": 0.0869,
+     "refund_requested": 0.7516,
+     "priority": 0.0955,
+     "needs_human": 0.8705
+    },
+    "probabilities": {
+     "department": {
+      "billing": 0.7386,
+      "support": 0.1584,
+      "sales": 0.103
+     },
+     "urgency": {
+      "0": 0.2858,
+      "1": 0.5327,
+      "2": 0.1815
+     },
+     "refund_requested": {
+      "false": 0.2484,
+      "true": 0.7516
+     },
+     "priority": {
+      "1": 0.3295,
+      "2": 0.5177,
+      "3": 0.1528
+     },
+     "needs_human": {
+      "false": 0.8705,
+      "true": 0.1295
+     }
+    },
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "billing",
+      "probabilities": {
+       "billing": 0.7386,
+       "support": 0.1584,
+       "sales": 0.103
+      },
+      "confidence": 0.3175,
+      "answer_confidence": 0.7386,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "urgency": {
+      "type": "score",
+      "score": 0.8957,
+      "legend": {
+       "0": "1",
+       "1": "2",
+       "2": "3"
+      },
+      "probabilities": {
+       "0": 0.2858,
+       "1": 0.5327,
+       "2": 0.1815
+      },
+      "confidence": 0.0869,
+      "answer_confidence": 0.5327,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "refund_requested": {
+      "type": "noul",
+      "noul": 0.7516,
+      "confidence": 0.7516,
+      "answer_confidence": 0.7516,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "priority": {
+      "type": "choice",
+      "choice": "2",
+      "probabilities": {
+       "1": 0.3295,
+       "2": 0.5177,
+       "3": 0.1528
+      },
+      "confidence": 0.0955,
+      "answer_confidence": 0.5177,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "needs_human": {
+      "type": "noul",
+      "noul": 0.1295,
+      "confidence": 0.8705,
+      "answer_confidence": 0.8705,
+      "action": {
+       "act_probability": 1.0
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 230,
+     "output_tokens": 0
+    },
+    "routing": null
+   }
+  },
+  {
+   "model": "typed_decisions",
+   "state": "The app crashes every time I open the settings page, can someone look at it?",
+   "details": {
+    "values": {
+     "department": "support",
+     "urgency": 2,
+     "refund_requested": false,
+     "priority": 2,
+     "needs_human": false
+    },
+    "confidence": {
+     "department": 0.2662,
+     "urgency": 0.009,
+     "refund_requested": 0.9569,
+     "priority": 0.0123,
+     "needs_human": 0.6851
+    },
+    "probabilities": {
+     "department": {
+      "billing": 0.118,
+      "support": 0.7042,
+      "sales": 0.1778
+     },
+     "urgency": {
+      "0": 0.3559,
+      "1": 0.375,
+      "2": 0.2691
+     },
+     "refund_requested": {
+      "false": 0.9569,
+      "true": 0.0431
+     },
+     "priority": {
+      "1": 0.3642,
+      "2": 0.3779,
+      "3": 0.2578
+     },
+     "needs_human": {
+      "false": 0.6851,
+      "true": 0.3149
+     }
+    },
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "support",
+      "probabilities": {
+       "billing": 0.118,
+       "support": 0.7042,
+       "sales": 0.1778
+      },
+      "confidence": 0.2662,
+      "answer_confidence": 0.7042,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "urgency": {
+      "type": "score",
+      "score": 0.9132,
+      "legend": {
+       "0": "1",
+       "1": "2",
+       "2": "3"
+      },
+      "probabilities": {
+       "0": 0.3559,
+       "1": 0.375,
+       "2": 0.2691
+      },
+      "confidence": 0.009,
+      "answer_confidence": 0.375,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "refund_requested": {
+      "type": "noul",
+      "noul": 0.0431,
+      "confidence": 0.9569,
+      "answer_confidence": 0.9569,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "priority": {
+      "type": "choice",
+      "choice": "2",
+      "probabilities": {
+       "1": 0.3642,
+       "2": 0.3779,
+       "3": 0.2578
+      },
+      "confidence": 0.0123,
+      "answer_confidence": 0.3779,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "needs_human": {
+      "type": "noul",
+      "noul": 0.3149,
+      "confidence": 0.6851,
+      "answer_confidence": 0.6851,
+      "action": {
+       "act_probability": 1.0
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 220,
+     "output_tokens": 0
+    },
+    "routing": null
+   }
+  },
+  {
+   "model": "typed_decisions",
+   "state": {
+    "body": "Mein Konto wurde zweimal belastet – bitte erstatten Sie den Betrag."
+   },
+   "details": {
+    "values": {
+     "department": "billing",
+     "urgency": 2,
+     "refund_requested": false,
+     "priority": 2,
+     "needs_human": false
+    },
+    "confidence": {
+     "department": 0.1687,
+     "urgency": 0.0414,
+     "refund_requested": 0.7489,
+     "priority": 0.0317,
+     "needs_human": 0.7762
+    },
+    "probabilities": {
+     "department": {
+      "billing": 0.5805,
+      "support": 0.3171,
+      "sales": 0.1024
+     },
+     "urgency": {
+      "0": 0.2994,
+      "1": 0.4716,
+      "2": 0.229
+     },
+     "refund_requested": {
+      "false": 0.7489,
+      "true": 0.2511
+     },
+     "priority": {
+      "1": 0.3031,
+      "2": 0.4544,
+      "3": 0.2425
+     },
+     "needs_human": {
+      "false": 0.7762,
+      "true": 0.2238
+     }
+    },
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "billing",
+      "probabilities": {
+       "billing": 0.5805,
+       "support": 0.3171,
+       "sales": 0.1024
+      },
+      "confidence": 0.1687,
+      "answer_confidence": 0.5805,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "urgency": {
+      "type": "score",
+      "score": 0.9296,
+      "legend": {
+       "0": "1",
+       "1": "2",
+       "2": "3"
+      },
+      "probabilities": {
+       "0": 0.2994,
+       "1": 0.4716,
+       "2": 0.229
+      },
+      "confidence": 0.0414,
+      "answer_confidence": 0.4716,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "refund_requested": {
+      "type": "noul",
+      "noul": 0.2511,
+      "confidence": 0.7489,
+      "answer_confidence": 0.7489,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "priority": {
+      "type": "choice",
+      "choice": "2",
+      "probabilities": {
+       "1": 0.3031,
+       "2": 0.4544,
+       "3": 0.2425
+      },
+      "confidence": 0.0317,
+      "answer_confidence": 0.4544,
+      "action": {
+       "act_probability": 1.0
+      }
+     },
+     "needs_human": {
+      "type": "noul",
+      "noul": 0.2238,
+      "confidence": 0.7762,
+      "answer_confidence": 0.7762,
+      "action": {
+       "act_probability": 1.0
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 270,
+     "output_tokens": 0
+    },
+    "routing": null
+   }
+  }
+ ]
+}

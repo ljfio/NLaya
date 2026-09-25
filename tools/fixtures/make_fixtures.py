@@ -10,9 +10,11 @@ Writes tests/NLaya.Tests/Fixtures/*.json:
   model_{multilingual,english,typed_decisions}.json      batch tensors -> logits / act_logits, predict outputs
   lang.json / email.json                                 laya.lang.analyse, Router routing, email cleaning
   router_batch.json                                      Router.route_batch / predict_batch grouping (fake agents)
+  structured.json                                        laya.structured: schema -> questions / SchemaError, projections
+  decide.json                                            Agent.decide(..., return_details=True) on each checkpoint
   src/NLaya/Presets/presets.json                         laya.presets, embedded in the library
 
-Pass --only lang,email,router_batch,presets,tokenizers,sequences,models to regenerate a subset.
+Pass --only lang,email,router_batch,presets,tokenizers,sequences,models,structured,decide to regenerate a subset.
 """
 import ast
 import glob
@@ -148,6 +150,11 @@ def main():
         if want("models"):
             model_fixture(name, repo, sub, dump)
 
+    if want("structured"):
+        structured_fixture(dump)
+    if want("decide"):
+        decide_fixture(dump)
+
 
 def sequences_fixture(dump, build_sequence, Agent):
     import laya
@@ -219,6 +226,178 @@ def model_fixture(name, repo, sub, dump):
     dump("model_%s.json" % name, {"repo": repo, "subfolder": sub, "batches": model_cases, "predicts": predicts,
                                   "predict_batch": batch})
     del agent
+
+
+# ---- laya.structured: every mapping rule and every SchemaError message, no model needed
+
+STRUCTURED_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "department": {"type": "string", "enum": ["billing", "support", "sales"], "description": "Which team?"},
+        "urgency": {"type": "integer", "minimum": 0, "maximum": 2},
+        "needs_human": {"type": "boolean"},
+        "priority": {"enum": [1, 2, 3]},
+    },
+}
+
+MIXED_ENUM = [1, "a", None, True, 2.5, 1e20, -0.0, [1, "x"], {"k": [None, False]}, "it's"]
+
+
+def _props(**props):
+    return {"type": "object", "properties": props}
+
+
+STRUCTURED_SCHEMAS = [
+    ("laya_test_schema", STRUCTURED_SCHEMA),
+    ("no_root_type", {"properties": {"ok": {"type": "boolean"}}}),
+    ("const_string", _props(a={"const": "only"})),
+    ("const_null", _props(a={"const": None})),
+    ("const_bool", _props(a={"const": True, "description": "Is it on?"})),
+    ("const_number", _props(a={"const": 3})),
+    ("enum_mixed", _props(a={"enum": MIXED_ENUM})),
+    ("enum_duplicate_labels", _props(a={"enum": [1, "1", 2]})),
+    ("enum_all_bool", _props(a={"enum": [True, False]})),
+    ("enum_wins_over_type", _props(a={"type": "string", "enum": ["x", "y"], "minimum": 0})),
+    ("const_wins_over_enum", _props(a={"const": "c", "enum": ["x", "y"]})),
+    ("enum_32_options", _props(a={"enum": ["v%d" % i for i in range(32)]})),
+    ("nullable_integer", _props(a={"type": ["integer", "null"], "minimum": 1, "maximum": 3})),
+    ("nullable_null_first", _props(a={"type": ["null", "boolean"]})),
+    ("number_score", _props(a={"type": "number", "minimum": -2, "maximum": 2})),
+    ("score_one_level", _props(a={"type": "integer", "minimum": 5, "maximum": 5})),
+    ("score_ten_levels", _props(a={"type": "integer", "minimum": 1, "maximum": 10})),
+    ("score_bool_bounds", _props(a={"type": "integer", "minimum": True, "maximum": 3})),
+    ("description_empty", _props(a={"type": "boolean", "description": ""})),
+    ("description_zero", _props(a={"type": "boolean", "description": 0})),
+    ("description_object", _props(a={"type": "boolean", "description": {"ask": "is it on?", "lang": "en"}})),
+    ("description_on_score", _props(a={"type": "integer", "minimum": 0, "maximum": 2, "description": "How bad?"})),
+    ("unicode_names", _props(**{"urgência": {"type": "boolean"}, "名前": {"enum": ["é", "日本"]}})),
+    ("properties_32", _props(**{("p%d" % i): {"type": "boolean"} for i in range(32)})),
+    ("oneof_is_python_rejected", _props(a={"type": "string", "oneOf": [{"const": "x", "description": "the x"}]})),
+    # errors
+    ("err_not_object_list", [1, 2]),
+    ("err_not_object_str", "schema"),
+    ("err_not_object_none", None),
+    ("err_root_array", {"type": "array"}),
+    ("err_root_nullable_object", {"type": ["object", "null"], "properties": {"a": {"type": "boolean"}}}),
+    ("err_no_properties", {"type": "object"}),
+    ("err_empty_properties", {"type": "object", "properties": {}}),
+    ("err_properties_list", {"type": "object", "properties": [{"type": "boolean"}]}),
+    ("err_properties_33", _props(**{("p%d" % i): {"type": "boolean"} for i in range(33)})),
+    ("err_prop_str", _props(a="boolean")),
+    ("err_prop_int", _props(a=1)),
+    ("err_prop_float", _props(a=1.5)),
+    ("err_prop_bool", _props(a=True)),
+    ("err_prop_none", _props(a=None)),
+    ("err_prop_list", _props(a=[{"type": "boolean"}])),
+    ("err_enum_33", _props(a={"enum": ["v%d" % i for i in range(33)]})),
+    ("err_enum_empty", _props(a={"enum": []})),
+    ("err_free_string", _props(a={"type": "string"})),
+    ("err_nullable_string", _props(a={"type": ["string", "null"]})),
+    ("err_array", _props(a={"type": "array", "items": {"type": "string"}})),
+    ("err_object", _props(a={"type": "object", "properties": {}})),
+    ("err_ref", _props(a={"$ref": "#/$defs/X"})),
+    ("err_object_with_ref", _props(a={"type": "object", "$ref": "#/$defs/X"})),
+    ("err_unbounded", _props(a={"type": "integer", "minimum": 0})),
+    ("err_float_bounds", _props(a={"type": "integer", "minimum": 0.0, "maximum": 2.0})),
+    ("err_max_below_min", _props(a={"type": "integer", "minimum": 3, "maximum": 1})),
+    ("err_too_wide", _props(a={"type": "integer", "minimum": 0, "maximum": 100})),
+    ("err_too_wide_11", _props(a={"type": "number", "minimum": -5, "maximum": 5})),
+    ("err_unsupported_null", _props(a={"type": "null"})),
+    ("err_unsupported_empty", _props(a={})),
+    ("err_unsupported_only_null", _props(a={"type": ["null"]})),
+    ("err_unsupported_repr", _props(a={"type": "weird", "x": [1, 2.5, None, True, "q'uote", 'd"q', "é\n\t\\"]})),
+    ("err_second_property", _props(ok={"type": "boolean"}, bad={"type": "string"})),
+]
+
+STRUCTURED_PROJECTIONS = [
+    ("laya_test_answers", STRUCTURED_SCHEMA, {
+        "department": {"type": "choice", "choice": "billing", "confidence": 0.9,
+                       "probabilities": {"billing": 0.9, "support": 0.1, "sales": 0.0}},
+        "urgency": {"type": "score", "score": 1.2, "confidence": 0.5,
+                    "probabilities": {"0": 0.1, "1": 0.2, "2": 0.7}, "legend": {}},
+        "needs_human": {"type": "noul", "noul": 0.8, "confidence": 0.8},
+        "priority": {"type": "choice", "choice": "2", "confidence": 0.7,
+                     "probabilities": {"1": 0.2, "2": 0.7, "3": 0.1}},
+    }),
+    ("noul_threshold", _props(lo={"type": "boolean"}, mid={"type": "boolean"}, hi={"type": "boolean"}, none={"type": "boolean"}), {
+        "lo": {"type": "noul", "noul": 0.4999}, "mid": {"type": "noul", "noul": 0.5},
+        "hi": {"type": "noul", "noul": 0.9}, "none": {"type": "noul"},
+    }),
+    ("score_argmax_ties_first", _props(s={"type": "integer", "minimum": 1, "maximum": 3}), {
+        "s": {"type": "score", "score": 2.9, "probabilities": {"0": 0.4, "1": 0.2, "2": 0.4}},
+    }),
+    ("score_missing_level_key", _props(s={"type": "integer", "minimum": -1, "maximum": 1}), {
+        "s": {"type": "score", "score": 0.0, "probabilities": {"1": 0.3, "2": 0.1, "x": 0.9}},
+    }),
+    ("score_rounds_half_even", _props(a={"type": "integer", "minimum": 1, "maximum": 4},
+                                      b={"type": "integer", "minimum": 1, "maximum": 4},
+                                      c={"type": "integer", "minimum": 0, "maximum": 2},
+                                      d={"type": "integer", "minimum": 0, "maximum": 2}), {
+        "a": {"type": "score", "score": 1.5}, "b": {"type": "score", "score": 2.5, "probabilities": {}},
+        "c": {"type": "score", "score": 0.49}, "d": {"type": "score"},
+    }),
+    ("choice_values_keep_type", _props(m={"enum": MIXED_ENUM}, n={"enum": MIXED_ENUM}, o={"enum": MIXED_ENUM},
+                                       p={"enum": MIXED_ENUM}, q={"enum": MIXED_ENUM}, r={"enum": MIXED_ENUM}), {
+        "m": {"type": "choice", "choice": "None"}, "n": {"type": "choice", "choice": "null"},
+        "o": {"type": "choice", "choice": "True"}, "p": {"type": "choice", "choice": "1e+20"},
+        "q": {"type": "choice", "choice": "[1, 'x']"}, "r": {"type": "choice", "choice": "{'k': [None, False]}"},
+    }),
+    ("choice_duplicate_label_first_wins", _props(a={"enum": [1, "1", 2]}), {"a": {"type": "choice", "choice": "1"}}),
+    ("choice_unknown_label", _props(a={"enum": ["x", "y"]}, b={"enum": ["x", "y"]}), {
+        "a": {"type": "choice", "choice": "z"}, "b": {"type": "choice"},
+    }),
+    ("choice_numeric_choice", _props(a={"enum": [1, 2]}), {"a": {"type": "choice", "choice": 2}}),
+    ("missing_and_extra_answers", _props(a={"type": "boolean"}, b={"type": "boolean"}), {
+        "b": {"type": "noul", "noul": 0.7}, "extra": {"type": "noul", "noul": 0.9},
+    }),
+    ("const_bool_is_noul", _props(a={"const": False}), {"a": {"type": "noul", "noul": 0.6}}),
+]
+
+
+def structured_fixture(dump):
+    from laya.structured import SchemaError, answers_to_json, questions_from_json_schema
+    schemas = []
+    for name, schema in STRUCTURED_SCHEMAS:
+        case = {"name": name, "schema": schema}
+        try:
+            case["questions"] = questions_from_json_schema(schema)
+        except SchemaError as e:
+            case["error"] = str(e)
+        schemas.append(case)
+    projections = [{"name": name, "schema": schema, "answers": answers, "values": answers_to_json(answers, schema)}
+                   for name, schema, answers in STRUCTURED_PROJECTIONS]
+    dump("structured.json", {"schemas": schemas, "projections": projections})
+
+
+DECIDE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "department": {"enum": ["billing", "support", "sales"], "description": "Which team should handle `body`?"},
+        "urgency": {"type": "integer", "minimum": 1, "maximum": 3, "description": "How urgent is this?"},
+        "refund_requested": {"type": "boolean", "description": "Does the sender ask for money back?"},
+        "priority": {"enum": [1, 2, 3]},
+        "needs_human": {"type": "boolean"},
+    },
+}
+
+DECIDE_STATES = [
+    {"body": "I was charged twice for invoice 4411. Please refund me today."},
+    "The app crashes every time I open the settings page, can someone look at it?",
+    {"body": "Mein Konto wurde zweimal belastet – bitte erstatten Sie den Betrag."},
+]
+
+
+def decide_fixture(dump):
+    import dataclasses
+    import laya
+    cases = []
+    for name, repo, sub in MODELS:
+        agent = laya.load(repo, device="cpu", subfolder=sub)
+        for state in DECIDE_STATES:
+            details = agent.decide(state, DECIDE_SCHEMA, return_details=True)
+            cases.append({"model": name, "state": state, "details": dataclasses.asdict(details)})
+        del agent
+    dump("decide.json", {"schema": DECIDE_SCHEMA, "cases": cases})
 
 
 def harvest_strings(pattern, max_len=3000):

@@ -98,6 +98,48 @@ A repeated id in a fluent chain throws; the indexer replaces the earlier questio
 dict. Read answers with `result.Choice("id")`, `result.Score("id")`, `result.Noul("id")`, or
 `result.TryGet<NoulAnswer>("id", out var a)` when a hook may have dropped one.
 
+## Typed decisions
+
+Describe the answer as a C# type and get one back (port of Python's `decide` / `laya.structured`).
+Each property becomes one question: an enum a choice, a `bool` a noul, and an integer with `[Range]`
+(at most 10 levels) a score. The property name is the question id; `[Description]` is the instructions.
+
+```csharp
+public enum Team
+{
+    [Description("Payments, invoices and refunds")] Billing,   // enum member descriptions: a .NET extra
+    [Description("Bugs and outages")] Support,
+    Other,
+}
+
+public sealed record Triage(
+    [property: Description("Which team should handle `body`?")] Team Team,
+    [property: Description("How urgent is this?"), Range(1, 3)] int Urgency,
+    bool NeedsHuman);
+
+[JsonSourceGenerationOptions(UseStringEnumConverter = true)]   // enums must serialize as strings
+[JsonSerializable(typeof(Triage))]
+internal partial class AppJson : JsonSerializerContext;
+
+Triage t = agent.Decide(email, AppJson.Default.Triage);                     // AOT-safe
+DecisionResult<Triage> d = agent.DecideWithDetails(email, AppJson.Default.Triage);
+// d.Value, d.Confidence["Team"], d.Probabilities["Urgency"], d.Answers, d.Usage, d.Routing
+
+Triage quick = agent.Decide<Triage>(email);   // reflection: fine in normal apps, warns under trimming / native AOT
+JsonObject values = agent.Decide(email, JsonNode.Parse(schemaJson)!);   // Python-style: a raw JSON schema
+```
+
+`Decide` works on `LayaAgent`, `Router` and any `ILayaPredictor`, with `...Async` twins. Plans are
+cached per type; `DecisionSchema.For(...)` / `DecisionSchema.FromJson(...)` expose the questions and
+`Project(...)` (Python's `answers_to_json`). A score decides its most likely level, not the rounded
+expected score. Free strings, arrays, nested objects and `$ref` throw `LayaSchemaException` with
+Python's message.
+
+Enum member descriptions are the one difference from Python, whose schemas can't describe enum
+values: they become the options' descriptions. In a raw JSON schema, write them the standard way,
+`"oneOf": [{"const": "billing", "description": "..."}, ...]`. Enums without descriptions, and every
+schema Python accepts, give exactly Python's questions.
+
 ## Router: pick the checkpoint per request
 
 ```csharp
@@ -316,8 +358,7 @@ questions, JSON states, tokenization, decoding and DI binding with a fake backen
 ## Roadmap
 
 Planned work, with the context needed to pick each item up, is in [`docs/next-steps/`](docs/next-steps/README.md):
-`Decide<T>()` typed schemas, publishing the ONNX exports, closing tokenizer gaps upstream, and an
-optional ML.NET pipeline stage.
+publishing the ONNX exports, closing tokenizer gaps upstream, and an optional ML.NET pipeline stage.
 
 License: Apache-2.0 (same as laya). NLaya is a port of [laya](https://github.com/NandhaKishorM/laya) by
 Convai Innovations / NandhaKishorM, and the model weights are theirs.
