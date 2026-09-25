@@ -78,7 +78,7 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
     public Task<IReadOnlyList<LayaResult>> PredictBatchAsync(IEnumerable<LayaState> states, Questions questions, BatchOptions? options = null, CancellationToken ct = default) =>
         Task.Run(() => PredictBatch(states, questions, options), ct);
 
-    private IList<LayaResult> PredictBatchCore(IList<LayaState> states, Questions questions, PredictOptions options, int? batchSize, bool sortByLength)
+    private IList<LayaResult> PredictBatchCore(List<LayaState> states, Questions questions, PredictOptions options, int? batchSize, bool sortByLength)
     {
         var active = Compose(options.Hooks);
         var raise = options.HooksRaise ?? HooksRaise;
@@ -90,7 +90,7 @@ public sealed class LayaAgent : HookRegistry, ILayaPredictor, IDisposable, IAsyn
             HeadMaxLen = options.HeadMaxLen,
             Lang = options.Lang,
         };
-        return RunWithHooks(active, ctx, raise, c => Infer(c, batchSize, sortByLength));
+        return LayaTelemetry.Predict(ModelId, states.Count, () => RunWithHooks(active, ctx, raise, c => Infer(c, batchSize, sortByLength)));
     }
 
     /// <summary>

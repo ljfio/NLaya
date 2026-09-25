@@ -37,7 +37,7 @@ Today ONNX users must run laya's Python `export_onnx.py` (commands in [README](R
 
 Check the latest `Microsoft.ML.Tokenizers` (3.0 previews were out in 2026) for a `tokenizer.json`
 loader or these options. If they're missing, open an issue or PR on `dotnet/machinelearning`
-with the fixture cases in `tests/NLaya.Tests/Fixtures/tokenizer_multilingual.json` as evidence.
+with the fixture cases in `tests/NLaya.Testing/Fixtures/tokenizer_multilingual.json` as evidence.
 When they land, `LayaTokenizer` shrinks to a load call plus the special-token lookup. The English
 checkpoint (byte-level BPE) already matches with the library alone.
 

@@ -7,7 +7,7 @@ namespace NLaya.Parity;
 [TestCaseOrderer(typeof(ByModelOrderer))]
 public class DecideParityTests(ParityFixture fx)
 {
-    private static readonly JsonNode Fixture = ParityFixture.Fixture("decide.json");
+    private static readonly JsonNode Fixture = TestFiles.Fixture("decide.json");
 
     public static TheoryData<string, string, int> Cases()
     {

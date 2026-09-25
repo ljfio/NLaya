@@ -16,7 +16,7 @@ public class ModelParityTests(ParityFixture fx)
         var data = new TheoryData<string, string, int>();
         foreach (var model in ParityFixture.Models)
         {
-            var n = ParityFixture.Fixture($"model_{model}.json")[section]!.AsArray().Count;
+            var n = TestFiles.Fixture($"model_{model}.json")[section]!.AsArray().Count;
             foreach (var backend in new[] { "torchsharp", "onnx" })
                 for (var i = 0; i < n; i++) data.Add(backend, model, i);
         }
@@ -39,7 +39,7 @@ public class ModelParityTests(ParityFixture fx)
     public void Encoder_hidden_states_match(string backend, string model, int i)
     {
         if (backend != "torchsharp") Assert.Skip("hidden states are only exposed by the TorchSharp backend");
-        var b = ParityFixture.Fixture($"model_{model}.json")["batches"]![i]!;
+        var b = TestFiles.Fixture($"model_{model}.json")["batches"]![i]!;
         var agent = fx.Agent(backend, model);
         var batch = ParityFixture.Batch(b);
         var hidden = ((TorchSharpBackend)agent.Backend).EncodeHidden(batch);
@@ -58,7 +58,7 @@ public class ModelParityTests(ParityFixture fx)
     [MemberData(nameof(Batches))]
     public void Logits_and_act_match(string backend, string model, int i)
     {
-        var b = ParityFixture.Fixture($"model_{model}.json")["batches"]![i]!;
+        var b = TestFiles.Fixture($"model_{model}.json")["batches"]![i]!;
         var agent = fx.Agent(backend, model);
         var batch = ParityFixture.Batch(b);
         var output = agent.Backend.Run(batch);
@@ -80,7 +80,7 @@ public class ModelParityTests(ParityFixture fx)
     [MemberData(nameof(Predicts))]
     public void Predict_matches_python(string backend, string model, int i)
     {
-        var c = ParityFixture.Fixture($"model_{model}.json")["predicts"]![i]!;
+        var c = TestFiles.Fixture($"model_{model}.json")["predicts"]![i]!;
         var agent = fx.Agent(backend, model);
         var result = agent.Predict(LayaState.FromJson(c["state"]?.DeepClone()), Questions.FromJson(c["questions"]));
         AssertResult(c["result"]!, result.ToJson());
@@ -90,7 +90,7 @@ public class ModelParityTests(ParityFixture fx)
     [MemberData(nameof(BackendModels))]
     public async Task PredictBatch_matches_python(string backend, string model)
     {
-        var c = ParityFixture.Fixture($"model_{model}.json")["predict_batch"]!;
+        var c = TestFiles.Fixture($"model_{model}.json")["predict_batch"]!;
         var agent = fx.Agent(backend, model);
         var states = c["states"]!.AsArray().Select(s => LayaState.FromJson(s?.DeepClone())).ToList();
         var results = agent.PredictBatch(states, Questions.FromJson(c["questions"]));
@@ -107,41 +107,9 @@ public class ModelParityTests(ParityFixture fx)
         for (var j = 0; j < streamed.Count; j++) AssertResult(expected[j]!, streamed[j].ToJson());
     }
 
-    /// <summary>Same keys and strings; numbers within <see cref="ProbTol"/>.</summary>
-    internal static void AssertResult(JsonNode? expected, JsonNode? actual, string path = "$")
-    {
-        switch (expected)
-        {
-            case JsonObject eo:
-            {
-                var ao = Assert.IsType<JsonObject>(actual);
-                Assert.Equal(eo.Select(kv => kv.Key), ao.Select(kv => kv.Key));
-                foreach (var (k, v) in eo) AssertResult(v, ao[k], $"{path}.{k}");
-                break;
-            }
-            case JsonArray ea:
-            {
-                var aa = Assert.IsType<JsonArray>(actual);
-                Assert.Equal(ea.Count, aa.Count);
-                for (var i = 0; i < ea.Count; i++) AssertResult(ea[i], aa[i], $"{path}[{i}]");
-                break;
-            }
-            case JsonValue ev when ev.GetValueKind() == System.Text.Json.JsonValueKind.Number:
-            {
-                var e = Number(ev);
-                var a = Number(actual!);
-                // input_tokens must match exactly; probabilities within tolerance.
-                Assert.True(Math.Abs(e - a) <= (path.EndsWith("input_tokens", StringComparison.Ordinal) ? 0 : ProbTol), $"{path}: expected {e}, got {a}");
-                break;
-            }
-            default:
-                Assert.True(JsonNode.DeepEquals(expected, actual), $"{path}: expected {expected?.ToJsonString()}, got {actual?.ToJsonString()}");
-                break;
-        }
-    }
-
-    private static double Number(JsonNode n) =>
-        double.Parse(n.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture);
+    /// <summary>Same keys and strings; token counts exact, other numbers within <see cref="ProbTol"/>.</summary>
+    internal static void AssertResult(JsonNode expected, JsonNode actual) =>
+        JsonAssert.Equivalent(expected, actual, path => path.EndsWith("input_tokens", StringComparison.Ordinal) ? 0 : ProbTol);
 
     private static float[] Softmax(float[] x, int rows, int cols)
     {

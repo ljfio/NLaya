@@ -11,8 +11,10 @@
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="NLaya.Testing" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../NLaya.Testing/NLaya.Testing.csproj" />
     <ProjectReference Include="../../src/NLaya/NLaya.csproj" />
     <ProjectReference Include="../../src/NLaya.TorchSharp/NLaya.TorchSharp.csproj" />
     <ProjectReference Include="../../src/NLaya.Onnx/NLaya.Onnx.csproj" />
@@ -20,8 +22,5 @@
     <ProjectReference Include="../../src/NLaya.ML/NLaya.ML.csproj" />
 
     <PackageReference Include="TorchSharp-cpu" Version="0.107.0" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="../NLaya.Tests/Fixtures/**" LinkBase="Fixtures" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

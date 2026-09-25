@@ -53,7 +53,8 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
 
     private readonly RouterOptions _o;
     private readonly Dictionary<string, CheckpointSpec> _models;
-    private readonly Dictionary<string, LayaAgent> _agents = new();
+    // A checkpoint is in _agents from the moment its load starts, and in _order once it has loaded.
+    private readonly Dictionary<string, Lazy<LayaAgent>> _agents = new();
     private readonly HashSet<string> _attached = new();
     private readonly List<string> _order = new(); // least recently used first
     private readonly Lock _lock = new();
@@ -99,27 +100,50 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
 
     // ---------------------------------------------------------------- loading
 
-    /// <summary>The agent for a checkpoint, loading it on first use.</summary>
+    /// <summary>
+    /// The agent for a checkpoint, loading it on first use. Loading takes seconds, so it runs outside
+    /// the router's lock: requests for checkpoints already loaded carry on, and concurrent requests for
+    /// the same checkpoint share one load.
+    /// </summary>
     public LayaAgent Load(string name)
     {
         var key = NormaliseName(name);
+        Lazy<LayaAgent> entry;
+        lock (_lock)
+        {
+            if (_agents.TryGetValue(key, out var existing) && existing.IsValueCreated)
+            {
+                Touch(key);
+                return existing.Value;
+            }
+            entry = existing ?? (_agents[key] = new Lazy<LayaAgent>(() => LoadAgent(key)));
+        }
+
         LayaAgent agent;
+        try
+        {
+            agent = entry.Value;
+        }
+        catch
+        {
+            // Lazy caches the exception; forget the entry so the next call tries again.
+            lock (_lock)
+            {
+                if (_agents.TryGetValue(key, out var current) && current == entry) _agents.Remove(key);
+            }
+            throw;
+        }
+
         List<string> evicted;
         lock (_lock)
         {
-            if (_agents.TryGetValue(key, out var existing))
+            // Unloaded while loading: hand the agent to this caller only. Loaded by a concurrent caller: already counted.
+            if (!_agents.TryGetValue(key, out var current) || current != entry) return agent;
+            if (_order.Contains(key))
             {
                 Touch(key);
-                return existing;
+                return agent;
             }
-            var spec = _models[key];
-            agent = Laya.Load(spec.Repo, o =>
-            {
-                o.Subfolder = spec.Subfolder;
-                o.Logger ??= _o.Logger;
-                _o.ConfigureAgent?.Invoke(key, o);
-            });
-            _agents[key] = agent;
             _order.Add(key);
             evicted = EvictLocked();
         }
@@ -129,13 +153,26 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         return agent;
     }
 
+    private LayaAgent LoadAgent(string key)
+    {
+        var spec = _models[key];
+        return Laya.Load(spec.Repo, o =>
+        {
+            o.Subfolder = spec.Subfolder;
+            o.Logger ??= _o.Logger;
+            _o.ConfigureAgent?.Invoke(key, o);
+        });
+    }
+
     /// <summary>Register an agent you already built instead of loading a second copy.</summary>
     public LayaAgent Attach(string name, LayaAgent agent)
     {
         var key = NormaliseName(name);
         lock (_lock)
         {
-            _agents[key] = agent;
+            var loaded = new Lazy<LayaAgent>(() => agent);
+            _ = loaded.Value;
+            _agents[key] = loaded;
             _attached.Add(key);
             Touch(key);
             _maxLoaded = Math.Max(_maxLoaded, _agents.Count);
@@ -219,7 +256,8 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
             Router = this,
         };
         Dispatch(Compose(options.Hooks), h => h.OnRoute(ctx), options.HooksRaise ?? HooksRaise, nameof(ILayaHook.OnRoute));
-        return ctx.Decision!;
+        LayaTelemetry.Routed(ctx.Decision!.Model);
+        return ctx.Decision;
     }
 
     private RouteDecision Decide(LayaState state, Questions? questions, RouteOptions o)
@@ -553,7 +591,7 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         List<LayaAgent> owned;
         lock (_lock)
         {
-            owned = _agents.Where(kv => !_attached.Contains(kv.Key)).Select(kv => kv.Value).ToList();
+            owned = _agents.Where(kv => !_attached.Contains(kv.Key) && kv.Value.IsValueCreated).Select(kv => kv.Value.Value).ToList();
             _agents.Clear();
             _order.Clear();
         }

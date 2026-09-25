@@ -38,7 +38,7 @@ public sealed class ParityFixture : IDisposable
             _current?.Agent.Dispose();
             _current = null;
             GC.Collect();
-            var f = Fixture($"model_{model}.json");
+            var f = TestFiles.Fixture($"model_{model}.json");
             var repo = f["repo"]!.GetValue<string>();
             var sub = f["subfolder"]?.GetValue<string>();
             var agent = backend == "onnx"
@@ -48,9 +48,6 @@ public sealed class ParityFixture : IDisposable
             return agent;
         }
     }
-
-    public static JsonNode Fixture(string name) =>
-        JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name)))!;
 
     public static EncodedBatch Batch(JsonNode b)
     {

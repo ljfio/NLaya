@@ -52,12 +52,14 @@ public sealed class LayaResult
         return o;
     }
 
-    public string ToJsonString(bool indented = false) =>
-        ToJson().ToJsonString(new JsonSerializerOptions
-        {
-            WriteIndented = indented,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        });
+    public string ToJsonString(bool indented = false) => ToJson().ToJsonString(indented ? IndentedOptions : CompactOptions);
+
+    private static readonly JsonSerializerOptions CompactOptions = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
+    private static readonly JsonSerializerOptions IndentedOptions = new(CompactOptions) { WriteIndented = true };
 
     public override string ToString() => ToJsonString();
 }

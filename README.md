@@ -158,6 +158,8 @@ router.Predict(state, questions, new RouteOptions { LangGuess = s => myLid(s) })
 Routing follows the Python rules: explicit `Model`, then `Task`, then `Lang`, then `LangGuess`, then
 script and language detection (`NLaya.Lang.LanguageDetector`). `typed-decisions` is only chosen when you
 ask for it, or when `AutoTaskDetection` is on and the question ids match one of its workflows.
+Checkpoints load on first use, outside the router's lock: requests for a checkpoint that is already
+loaded keep flowing while another loads, and concurrent requests for the same one share its load.
 
 ## Batch and streaming
 
@@ -228,6 +230,22 @@ agent.AddHook(LayaHooks.OnEnd(ctx => metrics.Record(ctx.Usage, ctx.ElapsedMs)));
 
 A hook implements any of `ILayaHook`'s events: `OnPredictStart` (it may rewrite the input or call
 `ctx.Skip(cached)`), `OnPredictEnd`, `OnError`, and for the Router `OnRoute`, `OnLoad` and `OnEvict`.
+
+## Tracing and metrics
+
+NLaya reports through the standard .NET diagnostics APIs (`ActivitySource` and `Meter`, both named
+`"NLaya"`), so OpenTelemetry or `dotnet-counters` pick it up with no extra package:
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithTracing(t => t.AddSource(LayaTelemetry.Name))
+    .WithMetrics(m => m.AddMeter(LayaTelemetry.Name));
+```
+
+Spans are `laya.load` and `laya.predict`. Metrics are `laya.load.duration`, `laya.predict.duration`
+(seconds), `laya.predict.states`, `laya.predict.tokens` and `laya.route.decisions`, all tagged with
+`laya.model`. Failures set the span status and an `error.type` tag. Hooks remain the place for
+per-call logic such as caching or redaction.
 
 ## Microsoft.Extensions.AI
 
@@ -322,6 +340,7 @@ var router = new Router(new RouterOptions { ConfigureAgent = (name, o) => o.UseO
 | `src/NLaya.ML` | `mlContext.Transforms.Laya(...)`: an ML.NET estimator/transformer that adds answer columns to an `IDataView` |
 | `tests/NLaya.Tests` | Parity with Python for tokenization, prompts, JSON, routing and email (golden fixtures), and the Extensions.AI middleware and DI with fakes |
 | `tests/NLaya.Parity` | Model parity for all three checkpoints on both backends, and an end-to-end guardrail test |
+| `tests/NLaya.Testing` | Shared by both test projects: the golden fixtures from `make_fixtures.py`, fixture loading and JSON comparison helpers |
 | `tools/fixtures` | Regenerates the fixtures and the embedded tables from the Python reference |
 | `samples/NLaya.Quickstart` | A single agent, then the Router across all three checkpoints |
 | `samples/NLaya.ChatGuardrail` | Guardrail, router and tool over echo chat clients (no API key) |

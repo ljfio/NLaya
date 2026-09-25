@@ -14,6 +14,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/NLaya.Parity/NLaya.Parity.csproj" />
+    <Project Path="tests/NLaya.Testing/NLaya.Testing.csproj" />
     <Project Path="tests/NLaya.Tests/NLaya.Tests.csproj" />
   </Folder>
 </Solution>

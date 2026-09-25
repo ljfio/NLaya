@@ -3,7 +3,7 @@
     git clone https://github.com/NandhaKishorM/laya && git -C laya checkout $(cut -d" " -f1 tools/fixtures/LAYA_COMMIT)
     uv run --python 3.12 --with ./laya --with tokenizers tools/fixtures/make_fixtures.py --laya-tests laya/tests
 
-Writes tests/NLaya.Tests/Fixtures/*.json:
+Writes tests/NLaya.Testing/Fixtures/*.json:
   tokenizer_multilingual.json / tokenizer_english.json  text -> ids (HF `tokenizers`, no specials)
   json_states.json                                       state -> json.dumps(ensure_ascii=False)
   sequences.json                                         build_sequence ids + markers
@@ -23,7 +23,7 @@ import os
 import sys
 
 os.environ.setdefault("USE_TF", "0")
-OUT = os.path.join(os.path.dirname(__file__), "..", "..", "tests", "NLaya.Tests", "Fixtures")
+OUT = os.path.join(os.path.dirname(__file__), "..", "..", "tests", "NLaya.Testing", "Fixtures")
 REPO = "convaiinnovations/laya-multilingual"
 
 TEXTS = [

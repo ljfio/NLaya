@@ -3,7 +3,7 @@
 NLaya is tested against the Python `laya` library it ports. `make_fixtures.py` runs the Python
 reference and writes:
 
-- `tests/NLaya.Tests/Fixtures/*.json`: golden outputs for tokenization, JSON serialization, prompt
+- `tests/NLaya.Testing/Fixtures/*.json`: golden outputs for tokenization, JSON serialization, prompt
   sequences, language detection and routing, email cleaning, and model outputs (hidden states, logits,
   full `predict` / `predict_batch` results) for all three checkpoints
 - `src/NLaya/Lang/lang_data.json`, `src/NLaya/Email/email_data.json`, `src/NLaya/Presets/presets.json`:

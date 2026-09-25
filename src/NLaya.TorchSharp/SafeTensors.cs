@@ -1,4 +1,7 @@
+using System.Buffers.Binary;
 using System.Text.Json;
+
+using Microsoft.Win32.SafeHandles;
 
 using static TorchSharp.torch;
 
@@ -9,13 +12,13 @@ internal static class SafeTensors
 {
     public static IReadOnlyList<SafeTensorEntry> ReadHeader(string path, out long dataOffset)
     {
-        using var fs = File.OpenRead(path);
+        using var file = File.OpenHandle(path);
         Span<byte> lenBytes = stackalloc byte[8];
-        fs.ReadExactly(lenBytes);
-        var headerLen = BitConverter.ToInt64(lenBytes);
+        ReadExactly(file, lenBytes, 0, path);
+        var headerLen = BinaryPrimitives.ReadInt64LittleEndian(lenBytes);
         if (headerLen <= 0 || headerLen > 100_000_000) throw new InvalidDataException($"{path} is not a safetensors file");
         var header = new byte[headerLen];
-        fs.ReadExactly(header);
+        ReadExactly(file, header, 8, path);
         dataOffset = 8 + headerLen;
         using var doc = JsonDocument.Parse(header);
         var entries = new List<SafeTensorEntry>();
@@ -35,7 +38,7 @@ internal static class SafeTensors
     {
         var entries = ReadHeader(path, out var dataOffset);
         var result = new Dictionary<string, Tensor>(StringComparer.Ordinal);
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20);
+        using var file = File.OpenHandle(path);
         foreach (var e in entries.OrderBy(e => e.Start))
         {
             var src = e.DType switch
@@ -52,13 +55,24 @@ internal static class SafeTensors
             // A plain array, not ArrayPool: the shared pool would keep the largest buffers (the
             // multilingual embedding is ~790 MB) alive for the life of the process.
             var buf = new byte[checked((int)(e.End - e.Start))];
-            fs.Position = dataOffset + e.Start;
-            fs.ReadExactly(buf);
+            ReadExactly(file, buf, dataOffset + e.Start, path);
             using var raw = empty(e.Shape, src);
             raw.bytes = buf;
             var isFloat = src is ScalarType.Float16 or ScalarType.BFloat16 or ScalarType.Float32 or ScalarType.Float64;
             result[e.Name] = raw.to(isFloat ? dtype : src, device).DetachFromDisposeScope();
         }
         return result;
+    }
+
+    /// <summary>Positional reads: no shared stream position, and no stream buffer in front of multi-hundred-MB tensors.</summary>
+    private static void ReadExactly(SafeFileHandle file, Span<byte> buffer, long offset, string path)
+    {
+        while (buffer.Length > 0)
+        {
+            var n = RandomAccess.Read(file, buffer, offset);
+            if (n == 0) throw new InvalidDataException($"{path} ends early; the download may be incomplete");
+            buffer = buffer[n..];
+            offset += n;
+        }
     }
 }

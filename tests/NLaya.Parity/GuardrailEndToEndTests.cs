@@ -12,7 +12,7 @@ public class GuardrailEndToEndTests(ParityFixture fx)
     public async Task Blocks_a_jailbreak_and_passes_an_ordinary_request()
     {
         var agent = fx.Agent("torchsharp", "english");
-        using var client = new Echo().AsBuilder()
+        using var client = new EchoChatClient().AsBuilder()
             .UseLayaGuardrail(agent, o =>
             {
                 o.Action = GuardrailAction.Filter;
@@ -31,20 +31,8 @@ public class GuardrailEndToEndTests(ParityFixture fx)
         Assert.Equal(ChatFinishReason.ContentFilter, blocked.FinishReason);
         Assert.Contains(check.Violations, v => v.QuestionId == "jailbreak");
 
-        var passed = await client.GetResponseAsync("What time does the Edinburgh office open on Mondays?", cancellationToken: ct);
-        Assert.Equal("echo", passed.Text);
-    }
-
-    private sealed class Echo : IChatClient
-    {
-        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, "echo")));
-
-        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
-            CancellationToken cancellationToken = default) => throw new NotSupportedException();
-
-        public object? GetService(Type serviceType, object? serviceKey = null) => null;
-
-        public void Dispose() { }
+        const string ordinary = "What time does the Edinburgh office open on Mondays?";
+        var passed = await client.GetResponseAsync(ordinary, cancellationToken: ct);
+        Assert.Equal($"echo: {ordinary}", passed.Text);
     }
 }

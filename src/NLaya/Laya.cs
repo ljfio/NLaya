@@ -21,11 +21,11 @@ public static class Laya
     /// </summary>
     public static Task<LayaAgent> LoadAsync(string modelIdOrPath = DefaultModel, Action<LayaOptions>? configure = null,
         CancellationToken ct = default) =>
-        Task.Run(() => LoadCore(modelIdOrPath, configure, ct), ct);
+        Task.Run(() => LayaTelemetry.Load(modelIdOrPath, () => LoadCore(modelIdOrPath, configure, ct)), ct);
 
     /// <summary>Synchronous <see cref="LoadAsync"/>: reads the checkpoint and builds the backend on the calling thread.</summary>
     public static LayaAgent Load(string modelIdOrPath = DefaultModel, Action<LayaOptions>? configure = null) =>
-        LoadCore(modelIdOrPath, configure, CancellationToken.None);
+        LayaTelemetry.Load(modelIdOrPath, () => LoadCore(modelIdOrPath, configure, CancellationToken.None));
 
     private static LayaAgent LoadCore(string modelIdOrPath, Action<LayaOptions>? configure, CancellationToken ct)
     {

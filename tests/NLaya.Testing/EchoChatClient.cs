@@ -2,10 +2,10 @@ using System.Runtime.CompilerServices;
 
 using Microsoft.Extensions.AI;
 
-namespace NLaya.Tests.ExtensionsAI;
+namespace NLaya.Testing;
 
 /// <summary>A chat client that replies "&lt;name&gt;: &lt;last message&gt;" and counts its calls.</summary>
-internal sealed class EchoChatClient(string name = "echo") : IChatClient
+public sealed class EchoChatClient(string name = "echo") : IChatClient
 {
     public int Calls { get; private set; }
 

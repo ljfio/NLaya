@@ -32,6 +32,9 @@ when the rule is wrong for that line.
 - Libraries `ConfigureAwait(false)` (CA2007); log through `[LoggerMessage]` methods (`LayaLog`); fixed
   regexes use `[GeneratedRegex]`.
 - LF line endings (`.gitattributes`), final newline, no trailing whitespace.
+- Observability goes through `LayaTelemetry` (`ActivitySource`/`Meter` named "NLaya"), not new logging or hooks.
+- Test code used by both test projects (fixture loading, `JsonAssert`, fakes both need) lives in
+  `tests/NLaya.Testing`, with the golden fixtures in `tests/NLaya.Testing/Fixtures`.
 
 ## Build and test
 

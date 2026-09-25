@@ -27,7 +27,7 @@ https://github.com/ljfio/NLaya.
   `Presets`, hooks and per-language temperatures are all implemented. `PredictStreamAsync` (a .NET
   addition) streams any `ILayaPredictor` a chunk at a time.
 - **Verified:** against golden fixtures from the Python library at laya commit `970dc8c`
-  (`tools/fixtures/LAYA_COMMIT`). That covers 2,741 unit tests (tokenization, prompts, JSON,
+  (`tools/fixtures/LAYA_COMMIT`). That covers 2,744 unit tests (tokenization, prompts, JSON,
   1,104 routing cases, 259 email cases) and model parity for all three checkpoints on both backends.
 - **Also works:** `NLaya.Extensions.AI` (the .NET equivalent of the LangChain integrations
   `LayaGuardrail` and `LayaRouter`, plus `AIFunction` tools and DI registration), `NLaya.ML` (an ML.NET
@@ -63,7 +63,7 @@ https://github.com/ljfio/NLaya.
   (exports on the Hub), since exporting in CI means installing torch.
 - **macOS runners cost 10x minutes on private repos.** `build.yml` runs on Ubuntu and macOS; drop macOS
   if minutes matter.
-- Try to reproduce the one-off exit crash with TorchSharp and ONNX Runtime in one process on Linux.
+- Check whether the intermittent exit crash (see gotchas) also happens on Linux.
 
 ## Commands
 
@@ -115,11 +115,12 @@ done
 - **zsh doesn't word-split** `${x:+--flag $y}`, so pass separate arguments.
 - **xUnit v3 on the Microsoft Testing Platform.** `global.json` sets the test runner, so use
   `dotnet test --project <proj>`.
-- **Exit crash, seen twice, not reproducible.** Parity runs with both libtorch and ONNX Runtime loaded
-  crashed at process exit (`recursive_mutex lock failed`, exit code 134) twice. 15 later runs on macOS
-  (12 of the Decide tests, 3 of the full suite, September 2026) exited cleanly. Results are
-  unaffected: it happens after the tests finish. If it returns, suspect native static destructors
-  racing ONNX Runtime's or libtorch's thread pools at `exit()`.
+- **Intermittent exit crash (about 1 run in 6).** Full parity runs with both libtorch and ONNX Runtime
+  loaded sometimes abort after the last test, at process exit: `libc++abi: terminating due to uncaught
+  exception of type std::__1::system_error: recursive_mutex lock failed: Invalid argument`, exit code
+  134. Seen 3 times in about 18 macOS runs (September 2026). Results are unaffected; rerun if CI
+  flags it. .NET doesn't run finalizers at exit, so suspect native static destructors racing
+  libtorch's or ONNX Runtime's thread pools; a repro with only one backend loaded would narrow it.
 - **The Router uses the bundle repo.** Its default is `convaiinnovations/laya` with subfolders, as
   in Python. The bundle's `multilingual/` is a separate 680 MB copy from the standalone repo.
 - **Evicted agents aren't disposed.** When the Router evicts an agent, it drops the reference and

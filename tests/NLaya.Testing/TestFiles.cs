@@ -3,10 +3,12 @@ using System.Text.Json.Nodes;
 using NLaya.Hub;
 using NLaya.Tokenization;
 
-namespace NLaya.Tests;
+using Xunit;
+
+namespace NLaya.Testing;
 
 /// <summary>Fixture JSON (committed) and checkpoint files (from the Hugging Face cache).</summary>
-internal static class TestFiles
+public static class TestFiles
 {
     public static JsonNode Fixture(string name) =>
         JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name)))!;

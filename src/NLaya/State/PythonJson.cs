@@ -9,7 +9,8 @@ namespace NLaya;
 /// Serializes JSON exactly like Python's <c>json.dumps(obj, ensure_ascii=False)</c>: <c>", "</c>
 /// and <c>": "</c> separators, no HTML escaping, non-ASCII written literally, and floats in
 /// Python <c>repr</c> form. The model reads this text, so any byte of difference changes the
-/// tokens it sees.
+/// tokens it sees. System.Text.Json can't be configured to match: it has no spaced separators, even
+/// its relaxed encoder escapes emoji and U+2028, and it writes <c>2.0</c> as <c>2</c>.
 /// </summary>
 internal static class PythonJson
 {
