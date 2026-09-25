@@ -78,6 +78,10 @@ public sealed class Question
     /// <summary>A choice between bare labels.</summary>
     public static Question Choice(string instructions, params string[] labels) => Choice(instructions, (IEnumerable<string>)labels);
 
+    /// <summary>A choice between labels, each with an optional description: <c>("refund", "money back"), ("other", null)</c>.</summary>
+    public static Question Choice(string instructions, params (string Label, string? Description)[] options) =>
+        Choice(instructions, options.Select(o => new KeyValuePair<string, string?>(o.Label, o.Description)));
+
     /// <summary>An ordinal score; <paramref name="levels"/> are described from index 0 up.</summary>
     public static Question Score(string instructions, IEnumerable<string> levels) =>
         Checked(new Question(QuestionType.Score, instructions, null,

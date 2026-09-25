@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -27,6 +28,16 @@ public sealed class LayaResult
     /// <summary>The answer to <paramref name="questionId"/> as a specific type.</summary>
     public T Answer<T>(string questionId) where T : Answer => Answers[questionId] as T
         ?? throw new InvalidCastException($"answer '{questionId}' is a {Answers[questionId].Type} answer, not {typeof(T).Name}");
+
+    /// <summary>The answer to <paramref name="questionId"/>, if there is one (a hook may have removed it).</summary>
+    public bool TryGet(string questionId, [NotNullWhen(true)] out Answer? answer) => Answers.TryGetValue(questionId, out answer);
+
+    /// <summary>The answer to <paramref name="questionId"/>, if there is one of type <typeparamref name="T"/>.</summary>
+    public bool TryGet<T>(string questionId, [NotNullWhen(true)] out T? answer) where T : Answer
+    {
+        answer = Answers.TryGetValue(questionId, out var a) ? a as T : null;
+        return answer is not null;
+    }
 
     public ChoiceAnswer Choice(string questionId) => Answer<ChoiceAnswer>(questionId);
     public ScoreAnswer Score(string questionId) => Answer<ScoreAnswer>(questionId);

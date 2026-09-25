@@ -47,27 +47,56 @@ using NLaya.TorchSharp;   // add TorchSharp-cpu (or TorchSharp-cuda-linux / -win
 
 await using var agent = await Laya.LoadAsync("convaiinnovations/laya-multilingual", o => o.UseTorchSharp());
 
+var questions = new Questions()
+    .Choice("department", "Which team should handle `body`?",
+        ("billing", "invoices, payments, refunds"),
+        ("technical", "bugs and outages"),
+        ("sales", "pricing"))
+    .Score("urgency", "How urgent is this?", "not urgent", "somewhat urgent", "very urgent")
+    .Noul("refund_requested", "Does the sender ask for money back?");
+
 var result = agent.Predict(
     new { body = "I was charged twice for invoice 4411. Please refund me today." },
-    new Questions
-    {
-        ["department"] = Question.Choice("Which team should handle `body`?", new Dictionary<string, string?>
-        {
-            ["billing"] = "invoices, payments, refunds",
-            ["technical"] = "bugs and outages",
-            ["sales"] = "pricing",
-        }),
-        ["urgency"] = Question.Score("How urgent is this?", "not urgent", "somewhat urgent", "very urgent"),
-        ["refund_requested"] = Question.Noul("Does the sender ask for money back?"),
-    },
+    questions,
     new PredictOptions { MaxLen = 8192 });   // multilingual reads up to 8,192 tokens
 
 Console.WriteLine(result.Choice("department").Choice);
 Console.WriteLine(result.ToJsonString(indented: true)); // same shape as Python's result dict
 ```
 
-Questions can also be given in the Python dict shape with `Questions.Parse(json)`. `PredictBatch`
-answers the same questions for many states in shared forward passes.
+`PredictBatch` answers the same questions for many states in shared forward passes.
+
+### Defining questions
+
+The fluent form above, a collection initializer and Python's dict shape all build the same
+`Questions`, so use whichever reads best (or mix them):
+
+```csharp
+// Options built in a loop, and a yes/no question with descriptions and display labels
+var q = new Questions()
+    .Choice("product", "Which product is `body` about?", c =>
+    {
+        foreach (var p in catalog) c.Option(p.Sku, p.Name);
+    })
+    .Score("frustration", "How frustrated is the sender?", s => s.Level("calm").Level("annoyed").Level("angry"))
+    .Noul("needs_reply", "Does the sender expect a reply?", n => n
+        .WhenTrue("they asked a question or requested an action")
+        .Labels("no", "yes"));
+
+// Collection initializer, as in Python's dict literal
+var q2 = new Questions
+{
+    ["refund_requested"] = Question.Noul("Does the sender ask for money back?"),
+    ["department"] = Question.Choice("Which team?", ("billing", "invoices"), ("other", null)),
+};
+
+// Python's dict shape, verbatim
+var q3 = Questions.Parse("""{"refund_requested": {"type": "noul", "instructions": "Does the sender ask for money back?"}}""");
+```
+
+A repeated id in a fluent chain throws; the indexer replaces the earlier question, like a Python
+dict. Read answers with `result.Choice("id")`, `result.Score("id")`, `result.Noul("id")`, or
+`result.TryGet<NoulAnswer>("id", out var a)` when a hook may have dropped one.
 
 ## Router: pick the checkpoint per request
 
