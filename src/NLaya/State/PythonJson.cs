@@ -74,7 +74,10 @@ internal static class PythonJson
             case double d: sb.Append(FormatFloat(d)); break;
             case float f: sb.Append(FormatFloat(f)); break;
             case decimal m: sb.Append(FormatFloat((double)m)); break;
-            default: WriteElement(JsonSerializer.SerializeToElement(val), sb); break;
+            default:
+                // The node writes itself with its own converter, so no reflection-based serializer is needed.
+                using (var doc = JsonDocument.Parse(val.ToJsonString())) WriteElement(doc.RootElement, sb);
+                break;
         }
     }
 

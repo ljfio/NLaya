@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- Source-generated configuration binding: reflection-free, so LayaSettings binds under Native AOT. -->
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <Description>Microsoft.Extensions.AI middleware (guardrail, router, tools) and dependency injection for NLaya.</Description>
   </PropertyGroup>
   <ItemGroup>

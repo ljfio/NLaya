@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using NLaya.Lang;
 
 namespace NLaya.Routing;
@@ -294,6 +295,9 @@ public sealed class Router : HookRegistry, ILayaPredictor, IDisposable
         return results[0].WithRouting(decision);
     }
 
+    /// <summary>Route and answer questions about any object (serialized to JSON with System.Text.Json).</summary>
+    [RequiresUnreferencedCode(LayaState.ReflectionMessage)]
+    [RequiresDynamicCode(LayaState.ReflectionMessage)]
     public LayaResult Predict(object state, Questions questions, RouteOptions? options = null) =>
         Predict(LayaState.From(state), questions, options);
 

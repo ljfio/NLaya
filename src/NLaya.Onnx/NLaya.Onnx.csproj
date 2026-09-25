@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <IsAotCompatible>true</IsAotCompatible>
     <Description>ONNX Runtime inference backend for NLaya (encoder.onnx + head.onnx exports).</Description>
   </PropertyGroup>
   <ItemGroup>
