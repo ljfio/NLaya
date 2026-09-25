@@ -7,7 +7,7 @@ this page first: it has the shared context the others assume.
 |---|---|---|---|
 | 1 | Microsoft.Extensions.AI middleware | `NLaya.Extensions.AI`: guardrail, router, tools | Done |
 | 2 | Dependency injection | `AddLaya` / `AddKeyedLaya` / `AddLayaRouter`, settings, warm-up | Done |
-| 3 | [03-decide-typed-schemas.md](03-decide-typed-schemas.md) | `agent.Decide<T>()`: a C# type in, typed values out (port of `laya.structured`) | Next |
+| 3 | Typed decisions | `agent.Decide<T>()`: a C# type in, typed values out (port of `laya.structured`) | Done; see "Typed decisions" in the root `README.md` |
 | 4 | [04-reduce-custom-code.md](04-reduce-custom-code.md) | ONNX exports on the Hub, upstream tokenizer gaps (4a, .NET 10 only, is done) | Any time |
 | 5 | [05-mlnet-pipeline-stage.md](05-mlnet-pipeline-stage.md) | An ML.NET `IEstimator`/`ITransformer` | Only if needed |
 | 6 | NuGet packages and CI | MinVer versions, `build.yml`, `parity.yml`, `release.yml` with trusted publishing | Done; see "Before the first release" |
@@ -30,7 +30,8 @@ https://github.com/ljfio/NLaya.
 - **Also works:** `NLaya.Extensions.AI` (the .NET equivalent of the LangChain integrations
   `LayaGuardrail` and `LayaRouter`, plus `AIFunction` tools and DI registration), NuGet packaging and
   GitHub Actions. Everything targets .NET 10 only.
-- **Not ported yet:** `decide` / `laya.structured` (step 3), `shortlist`, `LayaTriage` / `LayaEvaluator`
+- **Not ported yet:** `decide(questions=...)` pass-through (use `Predict`) and the pydantic helpers,
+  `shortlist`, `LayaTriage` / `LayaEvaluator`
   as chat middleware (`LayaTools.Triage` covers triage as a tool), remote `base_url` calls, the HTTP
   server, MCP, CLI and training.
 - **Layout:** see "Project layout" in the root `README.md`. The library is one type per file.

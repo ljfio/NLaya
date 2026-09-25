@@ -1,0 +1,1962 @@
+{
+ "schemas": [
+  {
+   "name": "laya_test_schema",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "department": {
+      "type": "string",
+      "enum": [
+       "billing",
+       "support",
+       "sales"
+      ],
+      "description": "Which team?"
+     },
+     "urgency": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2
+     },
+     "needs_human": {
+      "type": "boolean"
+     },
+     "priority": {
+      "enum": [
+       1,
+       2,
+       3
+      ]
+     }
+    }
+   },
+   "questions": {
+    "department": {
+     "type": "choice",
+     "instructions": "Which team?",
+     "criteria": {
+      "billing": null,
+      "support": null,
+      "sales": null
+     }
+    },
+    "urgency": {
+     "type": "score",
+     "instructions": "Score `urgency` from 0 to 2",
+     "criteria": [
+      "0",
+      "1",
+      "2"
+     ]
+    },
+    "needs_human": {
+     "type": "noul",
+     "instructions": "Is `needs_human` true?"
+    },
+    "priority": {
+     "type": "choice",
+     "instructions": "What is `priority`?",
+     "criteria": {
+      "1": null,
+      "2": null,
+      "3": null
+     }
+    }
+   }
+  },
+  {
+   "name": "no_root_type",
+   "schema": {
+    "properties": {
+     "ok": {
+      "type": "boolean"
+     }
+    }
+   },
+   "questions": {
+    "ok": {
+     "type": "noul",
+     "instructions": "Is `ok` true?"
+    }
+   }
+  },
+  {
+   "name": "const_string",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "const": "only"
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "choice",
+     "instructions": "What is `a`?",
+     "criteria": {
+      "only": null
+     }
+    }
+   }
+  },
+  {
+   "name": "const_null",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "const": null
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "choice",
+     "instructions": "What is `a`?",
+     "criteria": {
+      "null": null
+     }
+    }
+   }
+  },
+  {
+   "name": "const_bool",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "const": true,
+      "description": "Is it on?"
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "noul",
+     "instructions": "Is it on?"
+    }
+   }
+  },
+  {
+   "name": "const_number",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "const": 3
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "choice",
+     "instructions": "What is `a`?",
+     "criteria": {
+      "3": null
+     }
+    }
+   }
+  },
+  {
+   "name": "enum_mixed",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "enum": [
+       1,
+       "a",
+       null,
+       true,
+       2.5,
+       1e+20,
+       -0.0,
+       [
+        1,
+        "x"
+       ],
+       {
+        "k": [
+         null,
+         false
+        ]
+       },
+       "it's"
+      ]
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "choice",
+     "instructions": "What is `a`?",
+     "criteria": {
+      "1": null,
+      "a": null,
+      "null": null,
+      "True": null,
+      "2.5": null,
+      "1e+20": null,
+      "-0.0": null,
+      "[1, 'x']": null,
+      "{'k': [None, False]}": null,
+      "it's": null
+     }
+    }
+   }
+  },
+  {
+   "name": "enum_duplicate_labels",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "enum": [
+       1,
+       "1",
+       2
+      ]
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "choice",
+     "instructions": "What is `a`?",
+     "criteria": {
+      "1": null,
+      "2": null
+     }
+    }
+   }
+  },
+  {
+   "name": "enum_all_bool",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "enum": [
+       true,
+       false
+      ]
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "noul",
+     "instructions": "Is `a` true?"
+    }
+   }
+  },
+  {
+   "name": "enum_wins_over_type",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "string",
+      "enum": [
+       "x",
+       "y"
+      ],
+      "minimum": 0
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "choice",
+     "instructions": "What is `a`?",
+     "criteria": {
+      "x": null,
+      "y": null
+     }
+    }
+   }
+  },
+  {
+   "name": "const_wins_over_enum",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "const": "c",
+      "enum": [
+       "x",
+       "y"
+      ]
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "choice",
+     "instructions": "What is `a`?",
+     "criteria": {
+      "c": null
+     }
+    }
+   }
+  },
+  {
+   "name": "enum_32_options",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "enum": [
+       "v0",
+       "v1",
+       "v2",
+       "v3",
+       "v4",
+       "v5",
+       "v6",
+       "v7",
+       "v8",
+       "v9",
+       "v10",
+       "v11",
+       "v12",
+       "v13",
+       "v14",
+       "v15",
+       "v16",
+       "v17",
+       "v18",
+       "v19",
+       "v20",
+       "v21",
+       "v22",
+       "v23",
+       "v24",
+       "v25",
+       "v26",
+       "v27",
+       "v28",
+       "v29",
+       "v30",
+       "v31"
+      ]
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "choice",
+     "instructions": "What is `a`?",
+     "criteria": {
+      "v0": null,
+      "v1": null,
+      "v2": null,
+      "v3": null,
+      "v4": null,
+      "v5": null,
+      "v6": null,
+      "v7": null,
+      "v8": null,
+      "v9": null,
+      "v10": null,
+      "v11": null,
+      "v12": null,
+      "v13": null,
+      "v14": null,
+      "v15": null,
+      "v16": null,
+      "v17": null,
+      "v18": null,
+      "v19": null,
+      "v20": null,
+      "v21": null,
+      "v22": null,
+      "v23": null,
+      "v24": null,
+      "v25": null,
+      "v26": null,
+      "v27": null,
+      "v28": null,
+      "v29": null,
+      "v30": null,
+      "v31": null
+     }
+    }
+   }
+  },
+  {
+   "name": "nullable_integer",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "minimum": 1,
+      "maximum": 3
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "score",
+     "instructions": "Score `a` from 1 to 3",
+     "criteria": [
+      "1",
+      "2",
+      "3"
+     ]
+    }
+   }
+  },
+  {
+   "name": "nullable_null_first",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": [
+       "null",
+       "boolean"
+      ]
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "noul",
+     "instructions": "Is `a` true?"
+    }
+   }
+  },
+  {
+   "name": "number_score",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "number",
+      "minimum": -2,
+      "maximum": 2
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "score",
+     "instructions": "Score `a` from -2 to 2",
+     "criteria": [
+      "-2",
+      "-1",
+      "0",
+      "1",
+      "2"
+     ]
+    }
+   }
+  },
+  {
+   "name": "score_one_level",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 5
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "score",
+     "instructions": "Score `a` from 5 to 5",
+     "criteria": [
+      "5"
+     ]
+    }
+   }
+  },
+  {
+   "name": "score_ten_levels",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "score",
+     "instructions": "Score `a` from 1 to 10",
+     "criteria": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10"
+     ]
+    }
+   }
+  },
+  {
+   "name": "score_bool_bounds",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "integer",
+      "minimum": true,
+      "maximum": 3
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "score",
+     "instructions": "Score `a` from 1 to 3",
+     "criteria": [
+      "1",
+      "2",
+      "3"
+     ]
+    }
+   }
+  },
+  {
+   "name": "description_empty",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "boolean",
+      "description": ""
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "noul",
+     "instructions": "Is `a` true?"
+    }
+   }
+  },
+  {
+   "name": "description_zero",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "boolean",
+      "description": 0
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "noul",
+     "instructions": "Is `a` true?"
+    }
+   }
+  },
+  {
+   "name": "description_object",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "boolean",
+      "description": {
+       "ask": "is it on?",
+       "lang": "en"
+      }
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "noul",
+     "instructions": {
+      "ask": "is it on?",
+      "lang": "en"
+     }
+    }
+   }
+  },
+  {
+   "name": "description_on_score",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "description": "How bad?"
+     }
+    }
+   },
+   "questions": {
+    "a": {
+     "type": "score",
+     "instructions": "How bad?",
+     "criteria": [
+      "0",
+      "1",
+      "2"
+     ]
+    }
+   }
+  },
+  {
+   "name": "unicode_names",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "urgência": {
+      "type": "boolean"
+     },
+     "名前": {
+      "enum": [
+       "é",
+       "日本"
+      ]
+     }
+    }
+   },
+   "questions": {
+    "urgência": {
+     "type": "noul",
+     "instructions": "Is `urgência` true?"
+    },
+    "名前": {
+     "type": "choice",
+     "instructions": "What is `名前`?",
+     "criteria": {
+      "é": null,
+      "日本": null
+     }
+    }
+   }
+  },
+  {
+   "name": "properties_32",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "p0": {
+      "type": "boolean"
+     },
+     "p1": {
+      "type": "boolean"
+     },
+     "p2": {
+      "type": "boolean"
+     },
+     "p3": {
+      "type": "boolean"
+     },
+     "p4": {
+      "type": "boolean"
+     },
+     "p5": {
+      "type": "boolean"
+     },
+     "p6": {
+      "type": "boolean"
+     },
+     "p7": {
+      "type": "boolean"
+     },
+     "p8": {
+      "type": "boolean"
+     },
+     "p9": {
+      "type": "boolean"
+     },
+     "p10": {
+      "type": "boolean"
+     },
+     "p11": {
+      "type": "boolean"
+     },
+     "p12": {
+      "type": "boolean"
+     },
+     "p13": {
+      "type": "boolean"
+     },
+     "p14": {
+      "type": "boolean"
+     },
+     "p15": {
+      "type": "boolean"
+     },
+     "p16": {
+      "type": "boolean"
+     },
+     "p17": {
+      "type": "boolean"
+     },
+     "p18": {
+      "type": "boolean"
+     },
+     "p19": {
+      "type": "boolean"
+     },
+     "p20": {
+      "type": "boolean"
+     },
+     "p21": {
+      "type": "boolean"
+     },
+     "p22": {
+      "type": "boolean"
+     },
+     "p23": {
+      "type": "boolean"
+     },
+     "p24": {
+      "type": "boolean"
+     },
+     "p25": {
+      "type": "boolean"
+     },
+     "p26": {
+      "type": "boolean"
+     },
+     "p27": {
+      "type": "boolean"
+     },
+     "p28": {
+      "type": "boolean"
+     },
+     "p29": {
+      "type": "boolean"
+     },
+     "p30": {
+      "type": "boolean"
+     },
+     "p31": {
+      "type": "boolean"
+     }
+    }
+   },
+   "questions": {
+    "p0": {
+     "type": "noul",
+     "instructions": "Is `p0` true?"
+    },
+    "p1": {
+     "type": "noul",
+     "instructions": "Is `p1` true?"
+    },
+    "p2": {
+     "type": "noul",
+     "instructions": "Is `p2` true?"
+    },
+    "p3": {
+     "type": "noul",
+     "instructions": "Is `p3` true?"
+    },
+    "p4": {
+     "type": "noul",
+     "instructions": "Is `p4` true?"
+    },
+    "p5": {
+     "type": "noul",
+     "instructions": "Is `p5` true?"
+    },
+    "p6": {
+     "type": "noul",
+     "instructions": "Is `p6` true?"
+    },
+    "p7": {
+     "type": "noul",
+     "instructions": "Is `p7` true?"
+    },
+    "p8": {
+     "type": "noul",
+     "instructions": "Is `p8` true?"
+    },
+    "p9": {
+     "type": "noul",
+     "instructions": "Is `p9` true?"
+    },
+    "p10": {
+     "type": "noul",
+     "instructions": "Is `p10` true?"
+    },
+    "p11": {
+     "type": "noul",
+     "instructions": "Is `p11` true?"
+    },
+    "p12": {
+     "type": "noul",
+     "instructions": "Is `p12` true?"
+    },
+    "p13": {
+     "type": "noul",
+     "instructions": "Is `p13` true?"
+    },
+    "p14": {
+     "type": "noul",
+     "instructions": "Is `p14` true?"
+    },
+    "p15": {
+     "type": "noul",
+     "instructions": "Is `p15` true?"
+    },
+    "p16": {
+     "type": "noul",
+     "instructions": "Is `p16` true?"
+    },
+    "p17": {
+     "type": "noul",
+     "instructions": "Is `p17` true?"
+    },
+    "p18": {
+     "type": "noul",
+     "instructions": "Is `p18` true?"
+    },
+    "p19": {
+     "type": "noul",
+     "instructions": "Is `p19` true?"
+    },
+    "p20": {
+     "type": "noul",
+     "instructions": "Is `p20` true?"
+    },
+    "p21": {
+     "type": "noul",
+     "instructions": "Is `p21` true?"
+    },
+    "p22": {
+     "type": "noul",
+     "instructions": "Is `p22` true?"
+    },
+    "p23": {
+     "type": "noul",
+     "instructions": "Is `p23` true?"
+    },
+    "p24": {
+     "type": "noul",
+     "instructions": "Is `p24` true?"
+    },
+    "p25": {
+     "type": "noul",
+     "instructions": "Is `p25` true?"
+    },
+    "p26": {
+     "type": "noul",
+     "instructions": "Is `p26` true?"
+    },
+    "p27": {
+     "type": "noul",
+     "instructions": "Is `p27` true?"
+    },
+    "p28": {
+     "type": "noul",
+     "instructions": "Is `p28` true?"
+    },
+    "p29": {
+     "type": "noul",
+     "instructions": "Is `p29` true?"
+    },
+    "p30": {
+     "type": "noul",
+     "instructions": "Is `p30` true?"
+    },
+    "p31": {
+     "type": "noul",
+     "instructions": "Is `p31` true?"
+    }
+   }
+  },
+  {
+   "name": "oneof_is_python_rejected",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "string",
+      "oneOf": [
+       {
+        "const": "x",
+        "description": "the x"
+       }
+      ]
+     }
+    }
+   },
+   "error": "properties.a: a free string cannot be a fixed option set; use 'enum' or a boolean"
+  },
+  {
+   "name": "err_not_object_list",
+   "schema": [
+    1,
+    2
+   ],
+   "error": "expected a JSON schema object, got list"
+  },
+  {
+   "name": "err_not_object_str",
+   "schema": "schema",
+   "error": "expected a JSON schema object, got str"
+  },
+  {
+   "name": "err_not_object_none",
+   "schema": null,
+   "error": "expected a JSON schema object, got NoneType"
+  },
+  {
+   "name": "err_root_array",
+   "schema": {
+    "type": "array"
+   },
+   "error": "the top level must be an object with 'properties'"
+  },
+  {
+   "name": "err_root_nullable_object",
+   "schema": {
+    "type": [
+     "object",
+     "null"
+    ],
+    "properties": {
+     "a": {
+      "type": "boolean"
+     }
+    }
+   },
+   "error": "the top level must be an object with 'properties'"
+  },
+  {
+   "name": "err_no_properties",
+   "schema": {
+    "type": "object"
+   },
+   "error": "the top level must be an object with 'properties'"
+  },
+  {
+   "name": "err_empty_properties",
+   "schema": {
+    "type": "object",
+    "properties": {}
+   },
+   "error": "'properties' must be a non-empty object"
+  },
+  {
+   "name": "err_properties_list",
+   "schema": {
+    "type": "object",
+    "properties": [
+     {
+      "type": "boolean"
+     }
+    ]
+   },
+   "error": "'properties' must be a non-empty object"
+  },
+  {
+   "name": "err_properties_33",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "p0": {
+      "type": "boolean"
+     },
+     "p1": {
+      "type": "boolean"
+     },
+     "p2": {
+      "type": "boolean"
+     },
+     "p3": {
+      "type": "boolean"
+     },
+     "p4": {
+      "type": "boolean"
+     },
+     "p5": {
+      "type": "boolean"
+     },
+     "p6": {
+      "type": "boolean"
+     },
+     "p7": {
+      "type": "boolean"
+     },
+     "p8": {
+      "type": "boolean"
+     },
+     "p9": {
+      "type": "boolean"
+     },
+     "p10": {
+      "type": "boolean"
+     },
+     "p11": {
+      "type": "boolean"
+     },
+     "p12": {
+      "type": "boolean"
+     },
+     "p13": {
+      "type": "boolean"
+     },
+     "p14": {
+      "type": "boolean"
+     },
+     "p15": {
+      "type": "boolean"
+     },
+     "p16": {
+      "type": "boolean"
+     },
+     "p17": {
+      "type": "boolean"
+     },
+     "p18": {
+      "type": "boolean"
+     },
+     "p19": {
+      "type": "boolean"
+     },
+     "p20": {
+      "type": "boolean"
+     },
+     "p21": {
+      "type": "boolean"
+     },
+     "p22": {
+      "type": "boolean"
+     },
+     "p23": {
+      "type": "boolean"
+     },
+     "p24": {
+      "type": "boolean"
+     },
+     "p25": {
+      "type": "boolean"
+     },
+     "p26": {
+      "type": "boolean"
+     },
+     "p27": {
+      "type": "boolean"
+     },
+     "p28": {
+      "type": "boolean"
+     },
+     "p29": {
+      "type": "boolean"
+     },
+     "p30": {
+      "type": "boolean"
+     },
+     "p31": {
+      "type": "boolean"
+     },
+     "p32": {
+      "type": "boolean"
+     }
+    }
+   },
+   "error": "33 properties exceeds MAX_PROPERTIES=32"
+  },
+  {
+   "name": "err_prop_str",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": "boolean"
+    }
+   },
+   "error": "properties.a: property must be an object, got str"
+  },
+  {
+   "name": "err_prop_int",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": 1
+    }
+   },
+   "error": "properties.a: property must be an object, got int"
+  },
+  {
+   "name": "err_prop_float",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": 1.5
+    }
+   },
+   "error": "properties.a: property must be an object, got float"
+  },
+  {
+   "name": "err_prop_bool",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": true
+    }
+   },
+   "error": "properties.a: property must be an object, got bool"
+  },
+  {
+   "name": "err_prop_none",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": null
+    }
+   },
+   "error": "properties.a: property must be an object, got NoneType"
+  },
+  {
+   "name": "err_prop_list",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": [
+      {
+       "type": "boolean"
+      }
+     ]
+    }
+   },
+   "error": "properties.a: property must be an object, got list"
+  },
+  {
+   "name": "err_enum_33",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "enum": [
+       "v0",
+       "v1",
+       "v2",
+       "v3",
+       "v4",
+       "v5",
+       "v6",
+       "v7",
+       "v8",
+       "v9",
+       "v10",
+       "v11",
+       "v12",
+       "v13",
+       "v14",
+       "v15",
+       "v16",
+       "v17",
+       "v18",
+       "v19",
+       "v20",
+       "v21",
+       "v22",
+       "v23",
+       "v24",
+       "v25",
+       "v26",
+       "v27",
+       "v28",
+       "v29",
+       "v30",
+       "v31",
+       "v32"
+      ]
+     }
+    }
+   },
+   "error": "properties.a: 33 options exceeds MAX_OPTIONS=32"
+  },
+  {
+   "name": "err_enum_empty",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "enum": []
+     }
+    }
+   },
+   "error": "properties.a: 'enum' must not be empty"
+  },
+  {
+   "name": "err_free_string",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "string"
+     }
+    }
+   },
+   "error": "properties.a: a free string cannot be a fixed option set; use 'enum' or a boolean"
+  },
+  {
+   "name": "err_nullable_string",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    }
+   },
+   "error": "properties.a: a free string cannot be a fixed option set; use 'enum' or a boolean"
+  },
+  {
+   "name": "err_array",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "error": "properties.a: arrays are not supported; ask one field per element"
+  },
+  {
+   "name": "err_object",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "object",
+      "properties": {}
+     }
+    }
+   },
+   "error": "properties.a: nested objects are not supported; flatten the schema"
+  },
+  {
+   "name": "err_ref",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "$ref": "#/$defs/X"
+     }
+    }
+   },
+   "error": "properties.a: $ref/recursion is not supported; flatten the schema"
+  },
+  {
+   "name": "err_object_with_ref",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "object",
+      "$ref": "#/$defs/X"
+     }
+    }
+   },
+   "error": "properties.a: nested objects are not supported; flatten the schema"
+  },
+  {
+   "name": "err_unbounded",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "integer",
+      "minimum": 0
+     }
+    }
+   },
+   "error": "properties.a: a numeric field needs integer 'minimum' and 'maximum' to become a score"
+  },
+  {
+   "name": "err_float_bounds",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 2.0
+     }
+    }
+   },
+   "error": "properties.a: a numeric field needs integer 'minimum' and 'maximum' to become a score"
+  },
+  {
+   "name": "err_max_below_min",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 1
+     }
+    }
+   },
+   "error": "properties.a: 'maximum' 1 is below 'minimum' 3"
+  },
+  {
+   "name": "err_too_wide",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+     }
+    }
+   },
+   "error": "properties.a: 101 levels exceeds MAX_SCORE_LEVELS=10; narrow the range or use an enum"
+  },
+  {
+   "name": "err_too_wide_11",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "number",
+      "minimum": -5,
+      "maximum": 5
+     }
+    }
+   },
+   "error": "properties.a: 11 levels exceeds MAX_SCORE_LEVELS=10; narrow the range or use an enum"
+  },
+  {
+   "name": "err_unsupported_null",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "null"
+     }
+    }
+   },
+   "error": "properties.a: unsupported schema {'type': 'null'}"
+  },
+  {
+   "name": "err_unsupported_empty",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {}
+    }
+   },
+   "error": "properties.a: unsupported schema {}"
+  },
+  {
+   "name": "err_unsupported_only_null",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": [
+       "null"
+      ]
+     }
+    }
+   },
+   "error": "properties.a: unsupported schema {'type': ['null']}"
+  },
+  {
+   "name": "err_unsupported_repr",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "weird",
+      "x": [
+       1,
+       2.5,
+       null,
+       true,
+       "q'uote",
+       "d\"q",
+       "é\n\t\\"
+      ]
+     }
+    }
+   },
+   "error": "properties.a: unsupported schema {'type': 'weird', 'x': [1, 2.5, None, True, \"q'uote\", 'd\"q', 'é\\n\\t\\\\']}"
+  },
+  {
+   "name": "err_second_property",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "ok": {
+      "type": "boolean"
+     },
+     "bad": {
+      "type": "string"
+     }
+    }
+   },
+   "error": "properties.bad: a free string cannot be a fixed option set; use 'enum' or a boolean"
+  }
+ ],
+ "projections": [
+  {
+   "name": "laya_test_answers",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "department": {
+      "type": "string",
+      "enum": [
+       "billing",
+       "support",
+       "sales"
+      ],
+      "description": "Which team?"
+     },
+     "urgency": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2
+     },
+     "needs_human": {
+      "type": "boolean"
+     },
+     "priority": {
+      "enum": [
+       1,
+       2,
+       3
+      ]
+     }
+    }
+   },
+   "answers": {
+    "department": {
+     "type": "choice",
+     "choice": "billing",
+     "confidence": 0.9,
+     "probabilities": {
+      "billing": 0.9,
+      "support": 0.1,
+      "sales": 0.0
+     }
+    },
+    "urgency": {
+     "type": "score",
+     "score": 1.2,
+     "confidence": 0.5,
+     "probabilities": {
+      "0": 0.1,
+      "1": 0.2,
+      "2": 0.7
+     },
+     "legend": {}
+    },
+    "needs_human": {
+     "type": "noul",
+     "noul": 0.8,
+     "confidence": 0.8
+    },
+    "priority": {
+     "type": "choice",
+     "choice": "2",
+     "confidence": 0.7,
+     "probabilities": {
+      "1": 0.2,
+      "2": 0.7,
+      "3": 0.1
+     }
+    }
+   },
+   "values": {
+    "department": "billing",
+    "urgency": 2,
+    "needs_human": true,
+    "priority": 2
+   }
+  },
+  {
+   "name": "noul_threshold",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "lo": {
+      "type": "boolean"
+     },
+     "mid": {
+      "type": "boolean"
+     },
+     "hi": {
+      "type": "boolean"
+     },
+     "none": {
+      "type": "boolean"
+     }
+    }
+   },
+   "answers": {
+    "lo": {
+     "type": "noul",
+     "noul": 0.4999
+    },
+    "mid": {
+     "type": "noul",
+     "noul": 0.5
+    },
+    "hi": {
+     "type": "noul",
+     "noul": 0.9
+    },
+    "none": {
+     "type": "noul"
+    }
+   },
+   "values": {
+    "lo": false,
+    "mid": true,
+    "hi": true,
+    "none": false
+   }
+  },
+  {
+   "name": "score_argmax_ties_first",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "s": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+     }
+    }
+   },
+   "answers": {
+    "s": {
+     "type": "score",
+     "score": 2.9,
+     "probabilities": {
+      "0": 0.4,
+      "1": 0.2,
+      "2": 0.4
+     }
+    }
+   },
+   "values": {
+    "s": 1
+   }
+  },
+  {
+   "name": "score_missing_level_key",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "s": {
+      "type": "integer",
+      "minimum": -1,
+      "maximum": 1
+     }
+    }
+   },
+   "answers": {
+    "s": {
+     "type": "score",
+     "score": 0.0,
+     "probabilities": {
+      "1": 0.3,
+      "2": 0.1,
+      "x": 0.9
+     }
+    }
+   },
+   "values": {
+    "s": 0
+   }
+  },
+  {
+   "name": "score_rounds_half_even",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4
+     },
+     "b": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4
+     },
+     "c": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2
+     },
+     "d": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2
+     }
+    }
+   },
+   "answers": {
+    "a": {
+     "type": "score",
+     "score": 1.5
+    },
+    "b": {
+     "type": "score",
+     "score": 2.5,
+     "probabilities": {}
+    },
+    "c": {
+     "type": "score",
+     "score": 0.49
+    },
+    "d": {
+     "type": "score"
+    }
+   },
+   "values": {
+    "a": 2,
+    "b": 2,
+    "c": 0,
+    "d": 0
+   }
+  },
+  {
+   "name": "choice_values_keep_type",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "m": {
+      "enum": [
+       1,
+       "a",
+       null,
+       true,
+       2.5,
+       1e+20,
+       -0.0,
+       [
+        1,
+        "x"
+       ],
+       {
+        "k": [
+         null,
+         false
+        ]
+       },
+       "it's"
+      ]
+     },
+     "n": {
+      "enum": [
+       1,
+       "a",
+       null,
+       true,
+       2.5,
+       1e+20,
+       -0.0,
+       [
+        1,
+        "x"
+       ],
+       {
+        "k": [
+         null,
+         false
+        ]
+       },
+       "it's"
+      ]
+     },
+     "o": {
+      "enum": [
+       1,
+       "a",
+       null,
+       true,
+       2.5,
+       1e+20,
+       -0.0,
+       [
+        1,
+        "x"
+       ],
+       {
+        "k": [
+         null,
+         false
+        ]
+       },
+       "it's"
+      ]
+     },
+     "p": {
+      "enum": [
+       1,
+       "a",
+       null,
+       true,
+       2.5,
+       1e+20,
+       -0.0,
+       [
+        1,
+        "x"
+       ],
+       {
+        "k": [
+         null,
+         false
+        ]
+       },
+       "it's"
+      ]
+     },
+     "q": {
+      "enum": [
+       1,
+       "a",
+       null,
+       true,
+       2.5,
+       1e+20,
+       -0.0,
+       [
+        1,
+        "x"
+       ],
+       {
+        "k": [
+         null,
+         false
+        ]
+       },
+       "it's"
+      ]
+     },
+     "r": {
+      "enum": [
+       1,
+       "a",
+       null,
+       true,
+       2.5,
+       1e+20,
+       -0.0,
+       [
+        1,
+        "x"
+       ],
+       {
+        "k": [
+         null,
+         false
+        ]
+       },
+       "it's"
+      ]
+     }
+    }
+   },
+   "answers": {
+    "m": {
+     "type": "choice",
+     "choice": "None"
+    },
+    "n": {
+     "type": "choice",
+     "choice": "null"
+    },
+    "o": {
+     "type": "choice",
+     "choice": "True"
+    },
+    "p": {
+     "type": "choice",
+     "choice": "1e+20"
+    },
+    "q": {
+     "type": "choice",
+     "choice": "[1, 'x']"
+    },
+    "r": {
+     "type": "choice",
+     "choice": "{'k': [None, False]}"
+    }
+   },
+   "values": {
+    "m": "None",
+    "n": null,
+    "o": true,
+    "p": 1e+20,
+    "q": [
+     1,
+     "x"
+    ],
+    "r": {
+     "k": [
+      null,
+      false
+     ]
+    }
+   }
+  },
+  {
+   "name": "choice_duplicate_label_first_wins",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "enum": [
+       1,
+       "1",
+       2
+      ]
+     }
+    }
+   },
+   "answers": {
+    "a": {
+     "type": "choice",
+     "choice": "1"
+    }
+   },
+   "values": {
+    "a": 1
+   }
+  },
+  {
+   "name": "choice_unknown_label",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "enum": [
+       "x",
+       "y"
+      ]
+     },
+     "b": {
+      "enum": [
+       "x",
+       "y"
+      ]
+     }
+    }
+   },
+   "answers": {
+    "a": {
+     "type": "choice",
+     "choice": "z"
+    },
+    "b": {
+     "type": "choice"
+    }
+   },
+   "values": {
+    "a": "z",
+    "b": "None"
+   }
+  },
+  {
+   "name": "choice_numeric_choice",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "enum": [
+       1,
+       2
+      ]
+     }
+    }
+   },
+   "answers": {
+    "a": {
+     "type": "choice",
+     "choice": 2
+    }
+   },
+   "values": {
+    "a": 2
+   }
+  },
+  {
+   "name": "missing_and_extra_answers",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "type": "boolean"
+     },
+     "b": {
+      "type": "boolean"
+     }
+    }
+   },
+   "answers": {
+    "b": {
+     "type": "noul",
+     "noul": 0.7
+    },
+    "extra": {
+     "type": "noul",
+     "noul": 0.9
+    }
+   },
+   "values": {
+    "b": true
+   }
+  },
+  {
+   "name": "const_bool_is_noul",
+   "schema": {
+    "type": "object",
+    "properties": {
+     "a": {
+      "const": false
+     }
+    }
+   },
+   "answers": {
+    "a": {
+     "type": "noul",
+     "noul": 0.6
+    }
+   },
+   "values": {
+    "a": true
+   }
+  }
+ ]
+}

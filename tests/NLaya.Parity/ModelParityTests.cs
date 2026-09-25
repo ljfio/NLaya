@@ -103,7 +103,7 @@ public class ModelParityTests(ParityFixture fx)
     }
 
     /// <summary>Same keys and strings; numbers within <see cref="ProbTol"/>.</summary>
-    private static void AssertResult(JsonNode expected, JsonNode? actual, string path = "$")
+    internal static void AssertResult(JsonNode? expected, JsonNode? actual, string path = "$")
     {
         switch (expected)
         {
@@ -111,14 +111,14 @@ public class ModelParityTests(ParityFixture fx)
             {
                 var ao = Assert.IsType<JsonObject>(actual);
                 Assert.Equal(eo.Select(kv => kv.Key), ao.Select(kv => kv.Key));
-                foreach (var (k, v) in eo) AssertResult(v!, ao[k], $"{path}.{k}");
+                foreach (var (k, v) in eo) AssertResult(v, ao[k], $"{path}.{k}");
                 break;
             }
             case JsonArray ea:
             {
                 var aa = Assert.IsType<JsonArray>(actual);
                 Assert.Equal(ea.Count, aa.Count);
-                for (var i = 0; i < ea.Count; i++) AssertResult(ea[i]!, aa[i], $"{path}[{i}]");
+                for (var i = 0; i < ea.Count; i++) AssertResult(ea[i], aa[i], $"{path}[{i}]");
                 break;
             }
             case JsonValue ev when ev.GetValueKind() == System.Text.Json.JsonValueKind.Number:
@@ -130,7 +130,7 @@ public class ModelParityTests(ParityFixture fx)
                 break;
             }
             default:
-                Assert.True(JsonNode.DeepEquals(expected, actual), $"{path}: expected {expected.ToJsonString()}, got {actual?.ToJsonString()}");
+                Assert.True(JsonNode.DeepEquals(expected, actual), $"{path}: expected {expected?.ToJsonString()}, got {actual?.ToJsonString()}");
                 break;
         }
     }
